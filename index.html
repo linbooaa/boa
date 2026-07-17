@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>入稿格式整理工具</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f5f5f7;
+    --panel: #ffffff;
+    --text: #1d1d1f;
+    --muted: #6e6e73;
+    --accent: #0071e3;
+    --border: #d2d2d7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1e;
+      --panel: #2c2c2e;
+      --text: #f5f5f7;
+      --muted: #9a9a9e;
+      --border: #48484a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", "Microsoft JhengHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 24px;
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.sub { color: var(--muted); margin: 0 0 20px; font-size: 14px; }
+  .options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    font-size: 14px;
+  }
+  .options label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 800px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+  .col h2 { font-size: 14px; margin: 0 0 8px; color: var(--muted); font-weight: 600; }
+  textarea {
+    width: 100%;
+    height: 420px;
+    resize: vertical;
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    font-size: 15px;
+    line-height: 1.7;
+    font-family: inherit;
+  }
+  .actions {
+    display: flex;
+    gap: 10px;
+    margin: 16px 0;
+  }
+  button {
+    border: none;
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-size: 14px;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  #convertBtn { background: var(--accent); color: #fff; }
+  #copyBtn { background: var(--panel); color: var(--text); border: 1px solid var(--border); }
+  #copyBtn:disabled { opacity: 0.5; cursor: default; }
+  .status { font-size: 13px; color: var(--muted); margin-left: 4px; align-self: center; }
+</style>
+</head>
+<body>
+
+<h1>入稿格式整理工具</h1>
+<p class="sub">貼上原始稿件,一鍵統一標點全半形、中英文間距與多餘空白。</p>
+
+<div class="options">
+  <label><input type="checkbox" id="optPunct" checked> 標點符號轉全形(, . ! ? ; : ( ) " ' → 全形)</label>
+  <label><input type="checkbox" id="optSpacing" checked> 中文與英文/數字之間自動加空格</label>
+  <label><input type="checkbox" id="optWhitespace" checked> 整理多餘空白與換行</label>
+</div>
+
+<div class="grid">
+  <div class="col">
+    <h2>原始文字</h2>
+    <textarea id="input" placeholder="在這裡貼上稿件原文..."></textarea>
+  </div>
+  <div class="col">
+    <h2>整理後結果</h2>
+    <textarea id="output" placeholder="按下「開始轉換」後會顯示在這裡" readonly></textarea>
+  </div>
+</div>
+
+<div class="actions">
+  <button id="convertBtn">開始轉換</button>
+  <button id="copyBtn" disabled>複製結果</button>
+  <span class="status" id="status"></span>
+</div>
+
+<script>
+(function () {
+  const CJK = '一-鿿㐀-䶿豈-﫿぀-ヿ가-힣';
+  const cjkRe = new RegExp('[' + CJK + ']');
+
+  // 半形 -> 全形 標點對照表
+  const PUNCT_MAP = {
+    '!': '！',
+    '?': '？',
+    ';': '；',
+    ',': '，',
+    '(': '（',
+    ')': '）',
+    '~': '～'
+  };
+
+  function normalizeWhitespace(text) {
+    text = text.replace(/\r\n?/g, '\n');
+    // 每行去除行尾空白
+    text = text.split('\n').map(line => line.replace(/[ \t]+$/g, '')).join('\n');
+    // 連續半形空白/tab 收成一個空白(保留全形空白　,常用於段落縮排)
+    text = text.replace(/[ \t]{2,}/g, ' ');
+    // 三個以上換行收成兩個(最多留一行空行)
+    text = text.replace(/\n{3,}/g, '\n\n');
+    return text.trim();
+  }
+
+  function normalizePunctuation(text) {
+    // 先處理刪節號 ... -> ……
+    text = text.replace(/\.{3,}/g, '……');
+
+    // 句號:排除數字/英數字前後相鄰(小數點、網址、檔名、縮寫等)
+    text = text.replace(/(?<![A-Za-z0-9])\.(?![A-Za-z0-9])/g, '。');
+
+    // 冒號:排除時間格式 12:30 這類數字間的冒號
+    text = text.replace(/(?<!\d):(?!\d)/g, '：');
+
+    // 逗號:排除千分位數字之間,例如 1,000
+    text = text.replace(/(?<!\d),(?!\d)/g, PUNCT_MAP[',']);
+
+    // 其餘簡單對照表符號
+    text = text.replace(/[!?;()~]/g, ch => PUNCT_MAP[ch] || ch);
+
+    // 直雙引號 -> 中文引號「」(依出現順序交替開/合)
+    let dq = 0;
+    text = text.replace(/"/g, () => (dq++ % 2 === 0 ? '「' : '」'));
+
+    // 直單引號 -> 中文單引號『』(依出現順序交替開/合)
+    let sq = 0;
+    text = text.replace(/'/g, () => (sq++ % 2 === 0 ? '『' : '』'));
+
+    return text;
+  }
+
+  function addCjkSpacing(text) {
+    const cjk = '[' + CJK + ']';
+    const alnum = '[A-Za-z0-9]';
+    text = text.replace(new RegExp('(' + cjk + ')(' + alnum + ')', 'g'), '$1 $2');
+    text = text.replace(new RegExp('(' + alnum + ')(' + cjk + ')', 'g'), '$1 $2');
+    // 避免全形標點前後被誤加空白
+    text = text.replace(/([A-Za-z0-9]) (?=[　-〿＀-￯])/g, '$1');
+    text = text.replace(/(?<=[　-〿＀-￯]) ([A-Za-z0-9])/g, '$1');
+    return text;
+  }
+
+  function convert() {
+    let text = document.getElementById('input').value;
+    const doWhitespace = document.getElementById('optWhitespace').checked;
+    const doPunct = document.getElementById('optPunct').checked;
+    const doSpacing = document.getElementById('optSpacing').checked;
+
+    if (doWhitespace) text = normalizeWhitespace(text);
+    if (doPunct) text = normalizePunctuation(text);
+    if (doSpacing) text = addCjkSpacing(text);
+    if (doWhitespace) text = text.replace(/[ \t]{2,}/g, ' ');
+
+    document.getElementById('output').value = text;
+    document.getElementById('copyBtn').disabled = text.length === 0;
+    document.getElementById('status').textContent = '完成,共 ' + text.length + ' 字';
+  }
+
+  document.getElementById('convertBtn').addEventListener('click', convert);
+
+  document.getElementById('copyBtn').addEventListener('click', async () => {
+    const output = document.getElementById('output');
+    await navigator.clipboard.writeText(output.value);
+    const status = document.getElementById('status');
+    status.textContent = '已複製到剪貼簿';
+    setTimeout(() => { status.textContent = ''; }, 2000);
+  });
+})();
+</script>
+
+</body>
+</html>
