@@ -235,7 +235,7 @@
   <div class="arrow">→</div>
   <div class="col">
     <h2>整理後結果</h2>
-    <textarea id="output" placeholder="按下「開始轉換」後會顯示在這裡" readonly></textarea>
+    <textarea id="output" placeholder="按下「開始轉換」後會顯示在這裡"></textarea>
   </div>
 </div>
 
@@ -368,6 +368,10 @@
   }
 
   document.getElementById('convertBtn').addEventListener('click', convert);
+
+  document.getElementById('output').addEventListener('input', () => {
+    document.getElementById('copyBtn').disabled = document.getElementById('output').value.length === 0;
+  });
 
   document.getElementById('copyBtn').addEventListener('click', async () => {
     const output = document.getElementById('output');
