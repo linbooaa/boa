@@ -157,6 +157,49 @@
     border-color: var(--accent);
     box-shadow: inset 0 1px 3px rgba(60, 40, 20, 0.05), 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
   }
+  .emoji-panel { margin: 20px 0 0; }
+  .emoji-panel h2 {
+    font-size: 13px;
+    margin: 0 0 10px;
+    color: var(--muted);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .emoji-grid {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    background: color-mix(in srgb, var(--accent) 5%, var(--bg));
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px;
+    max-height: 220px;
+    overflow-y: auto;
+  }
+  .emoji-cat {
+    flex-basis: 100%;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 6px 0 0;
+  }
+  .emoji-cat:first-child { margin-top: 0; }
+  .emoji-btn {
+    border: 1px solid transparent;
+    background: transparent;
+    border-radius: 8px;
+    font-size: 19px;
+    line-height: 1;
+    padding: 6px 8px;
+    cursor: pointer;
+    transition: background 0.12s ease, transform 0.1s ease;
+  }
+  .emoji-btn:hover { background: var(--panel); border-color: var(--border); }
+  .emoji-btn:active { transform: scale(0.92); }
   .actions {
     display: flex;
     align-items: center;
@@ -184,6 +227,8 @@
   #copyBtn { background: var(--panel); color: var(--text); border: 1px solid var(--border); }
   #copyBtn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-ink); }
   #copyBtn:disabled { opacity: 0.45; cursor: default; }
+  #clearBtn { background: transparent; color: var(--muted); border: 1px solid transparent; }
+  #clearBtn:hover { color: var(--accent-ink); border-color: var(--border); }
   .status { font-size: 13px; color: var(--muted); margin-left: 4px; }
   footer {
     margin-top: 40px;
@@ -239,9 +284,15 @@
   </div>
 </div>
 
+<div class="emoji-panel">
+  <h2>常用 Emoji(點擊插入到游標所在欄位)</h2>
+  <div class="emoji-grid" id="emojiGrid"></div>
+</div>
+
 <div class="actions">
   <button id="convertBtn">✎ 開始轉換</button>
   <button id="copyBtn" disabled>⧉ 複製結果</button>
+  <button id="clearBtn">🗑 清除內容</button>
   <span class="status" id="status"></span>
 </div>
 
@@ -367,10 +418,67 @@
     document.getElementById('socialHint').classList.toggle('show', doSocial);
   }
 
+  const EMOJI_GROUPS = [
+    { label: '商用 / 行銷', items: ['🆕','🆓','🆒','🔒','🔓','🔑','⏳','⌛','📅','🗓️','📊','📈','📉','💼','🏢','🛒','🧾','💳','💸','🤑','📦','🚚','🚀','👑','💎','🥈','🥉','🏅','🎖️','☑️','✔️','🧧','🎫','🏬','🏦'] },
+    { label: '表情', items: ['😀','😃','😄','😁','😆','😅','🤣','😂','🙂','🙃','😉','😊','😇','🥰','😍','🤩','😘','😋','😛','🤪','🤗','🤭','🤔','😏','😌','😴','🥱','😷','🤒','🥵','🥶','🥳','😎','🤓','🧐','😮','😲','🥺','😢','😭','😱','😤','😡','🤯','😈','🤡','👻','😺','😻'] },
+    { label: '手勢', items: ['👍','👎','👌','✌️','🤞','🤟','🤘','🤙','👈','👉','👆','👇','☝️','✋','🖐️','👋','🤝','🙏','💪','✊','👊','👏','🙌','👐'] },
+    { label: '愛心', items: ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💕','💞','💓','💗','💖','💘','💝','💟','♥️','💌','💔'] },
+    { label: '慶祝 / 符號', items: ['✨','🔥','💯','⭐','🌟','💫','⚡','💥','🎉','🎊','🎁','🎈','🏆','🥇','🎯','🎀','🔔','💡','🌈','☀️','🌙','⏰','✅','❌','❗','❓','‼️','📌','📍','🔖','🏷️','💬','👀','📣','📢'] },
+    { label: '動物', items: ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🐔','🐧','🐦','🦆','🦉','🐝','🦋','🐢','🐍','🐙','🦀'] },
+    { label: '食物 / 飲料', items: ['🍎','🍊','🍋','🍌','🍉','🍇','🍓','🍒','🍑','🥭','🍍','🥝','🍅','🥑','🍞','🥐','🧀','🍳','🍔','🍕','🌭','🥪','🌮','🍜','🍱','🍣','🍰','🎂','🍦','🍩','🍪','☕','🍵','🧋','🍺','🍷'] },
+    { label: '生活 / 物品', items: ['🛍️','💰','💵','📱','💻','📷','🎧','📚','✏️','📝','🎨','🎵','🎬','🚗','✈️','🏠','🌴','🏖️','⛰️','🌸','🌺','🌻','🌹','🍀','🌿'] }
+  ];
+
+  function renderEmojiGrid() {
+    const grid = document.getElementById('emojiGrid');
+    const frag = document.createDocumentFragment();
+    EMOJI_GROUPS.forEach(group => {
+      const label = document.createElement('span');
+      label.className = 'emoji-cat';
+      label.textContent = group.label;
+      frag.appendChild(label);
+      group.items.forEach(emoji => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'emoji-btn';
+        btn.textContent = emoji;
+        frag.appendChild(btn);
+      });
+    });
+    grid.appendChild(frag);
+  }
+  renderEmojiGrid();
+
   document.getElementById('convertBtn').addEventListener('click', convert);
+
+  let activeTextarea = document.getElementById('output');
+  document.getElementById('input').addEventListener('focus', () => { activeTextarea = document.getElementById('input'); });
+  document.getElementById('output').addEventListener('focus', () => { activeTextarea = document.getElementById('output'); });
+
+  document.getElementById('emojiGrid').addEventListener('click', (e) => {
+    const btn = e.target.closest('.emoji-btn');
+    if (!btn) return;
+    const el = activeTextarea;
+    const start = el.selectionStart ?? el.value.length;
+    const end = el.selectionEnd ?? el.value.length;
+    el.value = el.value.slice(0, start) + btn.textContent + el.value.slice(end);
+    const caret = start + btn.textContent.length;
+    el.focus();
+    el.setSelectionRange(caret, caret);
+    el.dispatchEvent(new Event('input'));
+  });
 
   document.getElementById('output').addEventListener('input', () => {
     document.getElementById('copyBtn').disabled = document.getElementById('output').value.length === 0;
+  });
+
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    document.getElementById('input').value = '';
+    document.getElementById('output').value = '';
+    document.getElementById('copyBtn').disabled = true;
+    document.getElementById('status').textContent = '';
+    document.getElementById('socialHint').classList.remove('show');
+    document.getElementById('input').focus();
   });
 
   document.getElementById('copyBtn').addEventListener('click', async () => {
