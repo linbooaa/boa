@@ -242,6 +242,103 @@
     color: var(--accent-ink);
     font-weight: 600;
   }
+  .check-panel { margin: 20px 0 0; }
+  .check-panel h2 {
+    font-size: 13px;
+    margin: 0 0 10px;
+    color: var(--muted);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    font-size: 12.5px;
+    color: var(--muted);
+    margin: 0 0 10px;
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+  }
+  .legend .sw-sensitive { background: #f3b3ab; }
+  .legend .sw-brand { background: #a9cdf0; }
+  .highlight-preview {
+    min-height: 90px;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 18px;
+    font-size: 15.5px;
+    line-height: 1.9;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .highlight-preview .placeholder { color: var(--muted); }
+  mark.flag-sensitive {
+    background: #f3b3ab;
+    color: #5a201a;
+    border-radius: 3px;
+    padding: 0 1px;
+  }
+  mark.flag-brand {
+    background: #a9cdf0;
+    color: #16324f;
+    border-radius: 3px;
+    padding: 0 1px;
+  }
+  @media (prefers-color-scheme: dark) {
+    .legend .sw-sensitive, mark.flag-sensitive { background: #7a3a33; color: #ffe4df; }
+    .legend .sw-brand, mark.flag-brand { background: #2f5178; color: #dcebfc; }
+  }
+  details.check-config {
+    margin: 22px 0 0;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--accent) 5%, var(--bg));
+    padding: 4px 20px;
+  }
+  details.check-config summary {
+    cursor: pointer;
+    padding: 12px 0;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--accent-ink);
+    letter-spacing: 0.02em;
+  }
+  details.check-config .config-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    padding-bottom: 18px;
+  }
+  @media (max-width: 800px) {
+    details.check-config .config-grid { grid-template-columns: 1fr; }
+  }
+  details.check-config h3 {
+    font-size: 12.5px;
+    margin: 0 0 6px;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  details.check-config .config-hint {
+    font-size: 12px;
+    color: var(--muted);
+    margin: 4px 0 8px;
+    line-height: 1.6;
+  }
+  textarea.list-input {
+    height: 110px;
+    font-size: 13.5px;
+    line-height: 1.7;
+    padding: 10px 12px;
+  }
 </style>
 </head>
 <body>
@@ -297,6 +394,31 @@
 </div>
 
 <p class="hint" id="socialHint">📌 小提醒:適度加入 emoji 能增加文案趣味與互動感;正式發布前,社群仍保有依平台屬性調整文字/文案的權利。</p>
+
+<div class="check-panel">
+  <h2>檢查結果(僅標示,不會自動修改文字)</h2>
+  <div class="legend">
+    <span><i class="sw-sensitive"></i>敏感詞/禁用字</span>
+    <span><i class="sw-brand"></i>商標/產品名大小寫建議</span>
+  </div>
+  <div class="highlight-preview" id="highlightPreview"><span class="placeholder">按下「開始轉換」後,偵測到的敏感詞或商標大小寫問題會標示在這裡</span></div>
+</div>
+
+<details class="check-config">
+  <summary>敏感詞與商標對照表設定</summary>
+  <div class="config-grid">
+    <div>
+      <h3>敏感詞清單(每行一個詞)</h3>
+      <p class="config-hint">符合的字詞只會在上方「檢查結果」用紅色標示,不會自動修改文字內容。</p>
+      <textarea class="list-input" id="sensitiveWords"></textarea>
+    </div>
+    <div>
+      <h3>商標/產品名大小寫對照表(錯誤=&gt;正確,每行一組)</h3>
+      <p class="config-hint">例如 strix=&gt;Strix。比對時不分大小寫,只有大小寫寫錯時才會標示藍色提醒。</p>
+      <textarea class="list-input" id="brandMap"></textarea>
+    </div>
+  </div>
+</details>
 
 </section>
 
@@ -385,6 +507,91 @@
     });
   }
 
+  function escapeHtml(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function escapeRegExp(s) {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  function getSensitiveWords() {
+    return document.getElementById('sensitiveWords').value
+      .split('\n').map(s => s.trim()).filter(Boolean);
+  }
+
+  function getBrandMap() {
+    return document.getElementById('brandMap').value
+      .split('\n').map(s => s.trim()).filter(Boolean)
+      .map(line => {
+        const [wrong, correct] = line.split('=>').map(s => s && s.trim());
+        return { wrong, correct };
+      })
+      .filter(p => p.wrong && p.correct);
+  }
+
+  function findFlaggedRanges(text) {
+    const matches = [];
+
+    getSensitiveWords().forEach(word => {
+      const re = new RegExp(escapeRegExp(word), 'g');
+      let m;
+      while ((m = re.exec(text))) {
+        matches.push({ start: m.index, end: m.index + word.length, type: 'sensitive', label: '敏感詞:' + word });
+        if (re.lastIndex === m.index) re.lastIndex++;
+      }
+    });
+
+    getBrandMap().forEach(({ wrong, correct }) => {
+      const re = new RegExp(escapeRegExp(wrong), 'gi');
+      let m;
+      while ((m = re.exec(text))) {
+        const matched = m[0];
+        if (matched !== correct) {
+          matches.push({ start: m.index, end: m.index + matched.length, type: 'brand', label: '應為「' + correct + '」' });
+        }
+        if (re.lastIndex === m.index) re.lastIndex++;
+      }
+    });
+
+    // 同起點時優先保留較長的匹配,再依起點排序,並移除彼此重疊的區間
+    matches.sort((a, b) => a.start - b.start || (b.end - b.start) - (a.end - a.start));
+    const result = [];
+    let lastEnd = -1;
+    matches.forEach(m => {
+      if (m.start < lastEnd) return;
+      result.push(m);
+      lastEnd = m.end;
+    });
+    return result;
+  }
+
+  function buildHighlightHtml(text) {
+    const ranges = findFlaggedRanges(text);
+    if (ranges.length === 0) return null;
+    let html = '';
+    let cursor = 0;
+    ranges.forEach(m => {
+      html += escapeHtml(text.slice(cursor, m.start));
+      const cls = m.type === 'sensitive' ? 'flag-sensitive' : 'flag-brand';
+      html += '<mark class="' + cls + '" title="' + escapeHtml(m.label) + '">' + escapeHtml(text.slice(m.start, m.end)) + '</mark>';
+      cursor = m.end;
+    });
+    html += escapeHtml(text.slice(cursor));
+    return html;
+  }
+
+  function updateCheckPreview() {
+    const text = document.getElementById('output').value;
+    const preview = document.getElementById('highlightPreview');
+    if (!text) {
+      preview.innerHTML = '<span class="placeholder">按下「開始轉換」後,偵測到的敏感詞或商標大小寫問題會標示在這裡</span>';
+      return;
+    }
+    const html = buildHighlightHtml(text);
+    preview.innerHTML = html || '<span class="placeholder">沒有偵測到敏感詞或商標大小寫問題</span>';
+  }
+
   function stripSentenceEndPunctuation(text) {
     // 社群文案:句尾的逗號/句號通常可省略,但驚嘆號、問號保留語氣
     return text.split('\n').map(line => line.replace(/[,，.。]+$/g, '')).join('\n');
@@ -433,7 +640,36 @@
     document.getElementById('copyBtn').disabled = text.length === 0;
     document.getElementById('status').textContent = '完成,共 ' + text.length + ' 字';
     document.getElementById('socialHint').classList.toggle('show', doSocial);
+    updateCheckPreview();
   }
+
+  const DEFAULT_SENSITIVE_WORDS = ['小編', '抽獎', '抽', '刀'];
+  const DEFAULT_BRAND_MAP = ['strix=>Strix', 'scar=>SCAR'];
+  const STORAGE_KEY_SENSITIVE = 'manuscriptTool.sensitiveWords';
+  const STORAGE_KEY_BRAND = 'manuscriptTool.brandMap';
+
+  function initCheckConfig() {
+    const sensitiveEl = document.getElementById('sensitiveWords');
+    const brandEl = document.getElementById('brandMap');
+    let savedSensitive = null;
+    let savedBrand = null;
+    try {
+      savedSensitive = localStorage.getItem(STORAGE_KEY_SENSITIVE);
+      savedBrand = localStorage.getItem(STORAGE_KEY_BRAND);
+    } catch (e) { /* localStorage 不可用時(例如隱私模式)沿用預設值 */ }
+    sensitiveEl.value = savedSensitive !== null ? savedSensitive : DEFAULT_SENSITIVE_WORDS.join('\n');
+    brandEl.value = savedBrand !== null ? savedBrand : DEFAULT_BRAND_MAP.join('\n');
+
+    sensitiveEl.addEventListener('input', () => {
+      try { localStorage.setItem(STORAGE_KEY_SENSITIVE, sensitiveEl.value); } catch (e) {}
+      updateCheckPreview();
+    });
+    brandEl.addEventListener('input', () => {
+      try { localStorage.setItem(STORAGE_KEY_BRAND, brandEl.value); } catch (e) {}
+      updateCheckPreview();
+    });
+  }
+  initCheckConfig();
 
   const EMOJI_GROUPS = [
     { label: '商用 / 行銷', items: ['🆕','🆓','🆒','🔒','🔓','🔑','⏳','⌛','📅','🗓️','📊','📈','📉','💼','🏢','🛒','🧾','💳','💸','🤑','📦','🚚','🚀','👑','💎','🥈','🥉','🏅','🎖️','☑️','✔️','🧧','🎫','🏬','🏦'] },
@@ -487,6 +723,7 @@
 
   document.getElementById('output').addEventListener('input', () => {
     document.getElementById('copyBtn').disabled = document.getElementById('output').value.length === 0;
+    updateCheckPreview();
   });
 
   document.getElementById('clearBtn').addEventListener('click', () => {
@@ -496,6 +733,7 @@
     document.getElementById('status').textContent = '';
     document.getElementById('socialHint').classList.remove('show');
     document.getElementById('input').focus();
+    updateCheckPreview();
   });
 
   document.getElementById('copyBtn').addEventListener('click', async () => {
