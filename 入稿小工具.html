@@ -820,18 +820,27 @@
   ];
   const STORAGE_KEY_SENSITIVE = 'manuscriptTool.sensitiveWords';
   const STORAGE_KEY_BRAND = 'manuscriptTool.brandMap';
+  const STORAGE_KEY_BRAND_MIGRATED_V2 = 'manuscriptTool.brandMap.migratedV2';
 
   function initCheckConfig() {
     const sensitiveEl = document.getElementById('sensitiveWords');
     const brandEl = document.getElementById('brandMap');
     let savedSensitive = null;
     let savedBrand = null;
+    let brandMigratedV2 = null;
     try {
       savedSensitive = localStorage.getItem(STORAGE_KEY_SENSITIVE);
       savedBrand = localStorage.getItem(STORAGE_KEY_BRAND);
+      brandMigratedV2 = localStorage.getItem(STORAGE_KEY_BRAND_MIGRATED_V2);
     } catch (e) { /* localStorage 不可用時(例如隱私模式)沿用預設值 */ }
     sensitiveEl.value = savedSensitive !== null ? savedSensitive : DEFAULT_SENSITIVE_WORDS.join('\n');
-    brandEl.value = savedBrand !== null ? savedBrand : DEFAULT_BRAND_MAP.join('\n');
+    // 商標清單從 2 條擴充到近 70 條:舊瀏覽器裡存的一律視為尚未自訂,
+    // 自動升級成新的預設清單一次;之後使用者若自行編輯,版本標記已存在,不會再被覆蓋。
+    brandEl.value = (savedBrand !== null && brandMigratedV2) ? savedBrand : DEFAULT_BRAND_MAP.join('\n');
+    try {
+      localStorage.setItem(STORAGE_KEY_BRAND, brandEl.value);
+      localStorage.setItem(STORAGE_KEY_BRAND_MIGRATED_V2, '1');
+    } catch (e) {}
 
     sensitiveEl.addEventListener('input', () => {
       try { localStorage.setItem(STORAGE_KEY_SENSITIVE, sensitiveEl.value); } catch (e) {}
