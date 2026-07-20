@@ -379,6 +379,10 @@
     text-decoration: underline;
   }
   .reset-link:hover { opacity: 0.75; }
+  .reset-status {
+    color: var(--accent-ink);
+    font-weight: 600;
+  }
   details.check-config .config-hint {
     font-size: 12px;
     color: var(--muted);
@@ -459,12 +463,12 @@
   <div class="config-grid">
     <div>
       <h3>敏感詞清單(每行一個詞)<button type="button" class="reset-link" id="resetSensitive">重設為預設清單</button></h3>
-      <p class="config-hint">符合的字詞只會在「整理後結果」用紅色標示,不會自動修改文字內容。</p>
+      <p class="config-hint">符合的字詞只會在「整理後結果」用紅色標示,不會自動修改文字內容。 <span class="reset-status" id="resetSensitiveStatus"></span></p>
       <textarea class="list-input" id="sensitiveWords"></textarea>
     </div>
     <div>
       <h3>商標/產品名大小寫對照表(錯誤=&gt;正確,每行一組)<button type="button" class="reset-link" id="resetBrand">重設為預設清單</button></h3>
-      <p class="config-hint">例如 strix=&gt;Strix。比對時不分大小寫,只有大小寫寫錯時才會標示藍色提醒。井號開頭的行是分類註解,會被忽略。</p>
+      <p class="config-hint">例如 strix=&gt;Strix。比對時不分大小寫,只有大小寫寫錯時才會標示藍色提醒。井號開頭的行是分類註解,會被忽略。 <span class="reset-status" id="resetBrandStatus"></span></p>
       <textarea class="list-input" id="brandMap"></textarea>
     </div>
   </div>
@@ -838,17 +842,24 @@
       renderOutputHighlight(false);
     });
 
+    function flashResetStatus(el) {
+      el.textContent = '✓ 已重設完成';
+      setTimeout(() => { el.textContent = ''; }, 2500);
+    }
+
     document.getElementById('resetSensitive').addEventListener('click', () => {
       if (!confirm('確定要用預設清單覆蓋目前的敏感詞清單嗎?')) return;
       sensitiveEl.value = DEFAULT_SENSITIVE_WORDS.join('\n');
       try { localStorage.setItem(STORAGE_KEY_SENSITIVE, sensitiveEl.value); } catch (e) {}
       renderOutputHighlight(false);
+      flashResetStatus(document.getElementById('resetSensitiveStatus'));
     });
     document.getElementById('resetBrand').addEventListener('click', () => {
       if (!confirm('確定要用預設清單覆蓋目前的商標對照表嗎?')) return;
       brandEl.value = DEFAULT_BRAND_MAP.join('\n');
       try { localStorage.setItem(STORAGE_KEY_BRAND, brandEl.value); } catch (e) {}
       renderOutputHighlight(false);
+      flashResetStatus(document.getElementById('resetBrandStatus'));
     });
   }
   initCheckConfig();
