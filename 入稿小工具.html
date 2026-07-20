@@ -661,8 +661,13 @@
   }
 
   function stripSentenceEndPunctuation(text) {
-    // 社群文案:句尾的逗號/句號通常可省略,但驚嘆號、問號保留語氣
-    return text.split('\n').map(line => line.replace(/[,，.。]+$/g, '')).join('\n');
+    // 社群文案:逗號/句號通常可省略,但驚嘆號、問號保留語氣
+    // 原始稿件多半是連續段落而非每句換行,因此逐一移除全文中的逗號/句號,
+    // 而非只處理每行行尾;半形 , . 仍需保留數字間的小數點/千分位。
+    text = text.replace(/(?<!\d)\.(?!\d)/g, '');
+    text = text.replace(/(?<!\d),(?!\d)/g, '');
+    text = text.replace(/[，。]/g, '');
+    return text;
   }
 
   function wrapByPlatform(text, maxChars) {
