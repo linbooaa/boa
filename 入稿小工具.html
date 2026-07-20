@@ -428,7 +428,7 @@
 <div class="options">
   <label><input type="checkbox" id="optPunct" checked> 標點符號轉全形(, . ! ? ; : ( ) " ' → 全形)</label>
   <label><input type="checkbox" id="optSpacing" checked> 中文與英文/數字之間自動加空格,emoji 後方自動補一格</label>
-  <label><input type="checkbox" id="optWhitespace" checked> 整理多餘空白與換行</label>
+  <label><input type="checkbox" id="optWhitespace" checked> 社群排版保護(保留多重空格與段落空行,避免 IG/FB 自動吃掉)</label>
   <label><input type="checkbox" id="optSocial" checked> 社群文案模式(句尾移除逗號/句號,保留驚嘆號、問號)</label>
   <label>建議斷行:
     <select id="platformSelect">
@@ -508,15 +508,14 @@
     '~': '～'
   };
 
-  function normalizeWhitespace(text) {
-    text = text.replace(/\r\n?/g, '\n');
-    // 每行去除行尾空白
-    text = text.split('\n').map(line => line.replace(/[ \t]+$/g, '')).join('\n');
-    // 連續半形空白/tab 收成一個空白(保留全形空白　,常用於段落縮排)
-    text = text.replace(/[ \t]{2,}/g, ' ');
-    // 三個以上換行收成兩個(最多留一行空行)
-    text = text.replace(/\n{3,}/g, '\n\n');
-    return text.trim();
+  // 社群排版保護:在連續空白/空行中插入零寬空白(U+200B),
+  // 避免 IG、FB 等平台把使用者刻意排版的多重空格、段落空行自動收斂掉。
+  function protectSocialSpacing(text) {
+    const ZWSP = String.fromCharCode(8203); // U+200B 零寬空白
+    text = text.trim();
+    text = text.replace(/[ \t]{2,}/g, run => run.split('').join(ZWSP));
+    text = text.split('\n').map(line => (line === '' ? ZWSP : line)).join('\n');
+    return text;
   }
 
   function normalizePunctuation(text) {
@@ -817,14 +816,14 @@
     const doSocial = document.getElementById('optSocial').checked;
     const platformChars = parseInt(document.getElementById('platformSelect').value, 10) || 0;
 
-    if (doWhitespace) text = normalizeWhitespace(text);
+    text = text.replace(/\r\n?/g, '\n');
     if (doPunct) text = normalizePunctuation(text);
     if (doSocial) text = stripSentenceEndPunctuation(text);
     if (doSpacing) text = addCjkSpacing(text);
     if (doSpacing) text = addEmojiSpacing(text);
-    if (doWhitespace) text = text.replace(/[ \t]{2,}/g, ' ');
     text = correctBrandCasing(text);
     if (platformChars) text = wrapByPlatform(text, platformChars);
+    if (doWhitespace) text = protectSocialSpacing(text);
 
     const outputEl = document.getElementById('output');
     outputEl.innerHTML = buildHighlightHtml(text, findExactBrandRanges(text)) ?? escapeHtml(text);
