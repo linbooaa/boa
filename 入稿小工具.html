@@ -315,6 +315,10 @@
   }
   .legend .sw-sensitive { background: #f3b3ab; }
   .legend .sw-brand { background: #a9cdf0; }
+  .legend .sw-brand-fixed {
+    background: transparent;
+    border: 1.5px solid #3576c9;
+  }
   mark.flag-sensitive {
     background: #f3b3ab;
     color: #5a201a;
@@ -327,9 +331,17 @@
     border-radius: 3px;
     padding: 0 1px;
   }
+  mark.flag-brand-fixed {
+    background: transparent;
+    color: inherit;
+    border: 1.5px solid #3576c9;
+    border-radius: 4px;
+    padding: 0 2px;
+  }
   @media (prefers-color-scheme: dark) {
     .legend .sw-sensitive, mark.flag-sensitive { background: #7a3a33; color: #ffe4df; }
     .legend .sw-brand, mark.flag-brand { background: #2f5178; color: #dcebfc; }
+    .legend .sw-brand-fixed, mark.flag-brand-fixed { border-color: #7fb0eb; }
   }
   details.check-config {
     margin: 22px 0 0;
@@ -437,8 +449,8 @@
   <div class="col">
     <h2>整理後結果(可直接編輯)</h2>
     <div class="legend">
-      <span><i class="sw-sensitive"></i>敏感詞/禁用字</span>
-      <span><i class="sw-brand"></i>商標/產品名大小寫建議</span>
+      <span><i class="sw-sensitive"></i>敏感詞/禁用字(僅標示,不會自動修改)</span>
+      <span><i class="sw-brand-fixed"></i>商標/產品名大小寫(轉換時自動修正)</span>
     </div>
     <div id="output" class="output-edit" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="按下「開始轉換」後會顯示在這裡"></div>
   </div>
@@ -468,7 +480,7 @@
     </div>
     <div>
       <h3>商標/產品名大小寫對照表(錯誤=&gt;正確,每行一組)<button type="button" class="reset-link" id="resetBrand">重設為預設清單</button></h3>
-      <p class="config-hint">例如 strix=&gt;Strix。比對時不分大小寫,只有大小寫寫錯時才會標示藍色提醒。井號開頭的行是分類註解,會被忽略。 <span class="reset-status" id="resetBrandStatus"></span></p>
+      <p class="config-hint">例如 strix=&gt;Strix。比對時不分大小寫;按下「開始轉換」時會自動修正大小寫,並用框線標示提醒你哪裡被改過。直接編輯整理後結果時則只會用框線標示、不會自動改字。井號開頭的行是分類註解,會被忽略。 <span class="reset-status" id="resetBrandStatus"></span></p>
       <textarea class="list-input" id="brandMap"></textarea>
     </div>
   </div>
@@ -584,31 +596,8 @@
       .filter(p => p.wrong && p.correct);
   }
 
-  function findFlaggedRanges(text) {
-    const matches = [];
-
-    getSensitiveWords().forEach(word => {
-      const re = new RegExp(escapeRegExp(word), 'g');
-      let m;
-      while ((m = re.exec(text))) {
-        matches.push({ start: m.index, end: m.index + word.length, type: 'sensitive', label: '敏感詞:' + word });
-        if (re.lastIndex === m.index) re.lastIndex++;
-      }
-    });
-
-    getBrandMap().forEach(({ wrong, correct }) => {
-      const re = new RegExp(escapeRegExp(wrong), 'gi');
-      let m;
-      while ((m = re.exec(text))) {
-        const matched = m[0];
-        if (matched !== correct) {
-          matches.push({ start: m.index, end: m.index + matched.length, type: 'brand', label: '應為「' + correct + '」' });
-        }
-        if (re.lastIndex === m.index) re.lastIndex++;
-      }
-    });
-
-    // 同起點時優先保留較長的匹配,再依起點排序,並移除彼此重疊的區間
+  // 移除重疊區間:同起點時優先保留較長的匹配,再依起點排序
+  function resolveOverlaps(matches) {
     matches.sort((a, b) => a.start - b.start || (b.end - b.start) - (a.end - a.start));
     const result = [];
     let lastEnd = -1;
@@ -620,14 +609,74 @@
     return result;
   }
 
-  function buildHighlightHtml(text) {
-    const ranges = findFlaggedRanges(text);
+  function findSensitiveRanges(text) {
+    const matches = [];
+    getSensitiveWords().forEach(word => {
+      const re = new RegExp(escapeRegExp(word), 'g');
+      let m;
+      while ((m = re.exec(text))) {
+        matches.push({ start: m.index, end: m.index + word.length, type: 'sensitive', label: '敏感詞:' + word });
+        if (re.lastIndex === m.index) re.lastIndex++;
+      }
+    });
+    return resolveOverlaps(matches);
+  }
+
+  // 偵測商標/產品名大小寫錯誤(僅偵測,不修改文字)- 用於使用者直接編輯整理後結果時的即時提醒
+  function findBrandMismatchRanges(text) {
+    const matches = [];
+    getBrandMap().forEach(({ wrong, correct }) => {
+      const re = new RegExp(escapeRegExp(wrong), 'gi');
+      let m;
+      while ((m = re.exec(text))) {
+        const matched = m[0];
+        if (matched !== correct) {
+          matches.push({ start: m.index, end: m.index + matched.length, type: 'brand', label: '應為「' + correct + '」' });
+        }
+        if (re.lastIndex === m.index) re.lastIndex++;
+      }
+    });
+    return resolveOverlaps(matches);
+  }
+
+  // 自動修正商標/產品名大小寫,回傳修正後文字與被修正的區間(用於轉換時框線標示提醒)
+  function correctBrandCasing(text) {
+    const matches = [];
+    getBrandMap().forEach(({ wrong, correct }) => {
+      const re = new RegExp(escapeRegExp(wrong), 'gi');
+      let m;
+      while ((m = re.exec(text))) {
+        const matched = m[0];
+        if (matched !== correct) {
+          matches.push({ start: m.index, end: m.index + matched.length, correct });
+        }
+        if (re.lastIndex === m.index) re.lastIndex++;
+      }
+    });
+    const kept = resolveOverlaps(matches);
+
+    let result = '';
+    let cursor = 0;
+    const fixedRanges = [];
+    kept.forEach(m => {
+      result += text.slice(cursor, m.start);
+      const fixStart = result.length;
+      result += m.correct;
+      fixedRanges.push({ start: fixStart, end: fixStart + m.correct.length, type: 'brand-fixed', label: '已自動修正為「' + m.correct + '」' });
+      cursor = m.end;
+    });
+    result += text.slice(cursor);
+    return { text: result, fixedRanges };
+  }
+
+  function buildHighlightHtml(text, brandRanges) {
+    const ranges = resolveOverlaps(findSensitiveRanges(text).concat(brandRanges || []));
     if (ranges.length === 0) return null;
     let html = '';
     let cursor = 0;
     ranges.forEach(m => {
+      const cls = m.type === 'sensitive' ? 'flag-sensitive' : (m.type === 'brand-fixed' ? 'flag-brand-fixed' : 'flag-brand');
       html += escapeHtml(text.slice(cursor, m.start));
-      const cls = m.type === 'sensitive' ? 'flag-sensitive' : 'flag-brand';
       html += '<mark class="' + cls + '" title="' + escapeHtml(m.label) + '">' + escapeHtml(text.slice(m.start, m.end)) + '</mark>';
       cursor = m.end;
     });
@@ -673,11 +722,13 @@
     sel.addRange(range);
   }
 
+  // 使用者直接編輯整理後結果時呼叫:只偵測、標示商標大小寫問題,不自動改字
+  // (自動修正只在按下「開始轉換」時發生,避免打字打到一半被搶著改)
   function renderOutputHighlight(preserveCaret) {
     const el = document.getElementById('output');
     const text = el.textContent;
     const caretOffset = preserveCaret ? getCaretOffset(el) : null;
-    el.innerHTML = buildHighlightHtml(text) ?? escapeHtml(text);
+    el.innerHTML = buildHighlightHtml(text, findBrandMismatchRanges(text)) ?? escapeHtml(text);
     document.getElementById('copyBtn').disabled = text.length === 0;
     if (caretOffset !== null) setCaretOffset(el, caretOffset);
   }
@@ -731,8 +782,11 @@
     if (doWhitespace) text = text.replace(/[ \t]{2,}/g, ' ');
     if (platformChars) text = wrapByPlatform(text, platformChars);
 
+    const brandFix = correctBrandCasing(text);
+    text = brandFix.text;
+
     const outputEl = document.getElementById('output');
-    outputEl.innerHTML = buildHighlightHtml(text) ?? escapeHtml(text);
+    outputEl.innerHTML = buildHighlightHtml(text, brandFix.fixedRanges) ?? escapeHtml(text);
     document.getElementById('copyBtn').disabled = text.length === 0;
     document.getElementById('status').textContent = '完成,共 ' + text.length + ' 字';
     document.getElementById('socialHint').classList.toggle('show', doSocial);
