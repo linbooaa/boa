@@ -184,7 +184,9 @@
   }
   textarea, .output-edit {
     width: 100%;
-    height: 420px;
+    min-height: 140px;
+    max-height: 600px;
+    overflow-y: auto;
     resize: vertical;
     background: var(--bg);
     color: var(--text);
@@ -195,7 +197,7 @@
     line-height: 1.9;
     font-family: inherit;
     box-shadow: inset 0 1px 3px rgba(60, 40, 20, 0.05);
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, height 0.1s ease;
   }
   textarea:focus, .output-edit:focus {
     outline: none;
@@ -203,10 +205,8 @@
     box-shadow: inset 0 1px 3px rgba(60, 40, 20, 0.05), 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
   }
   .output-edit {
-    overflow-y: auto;
     white-space: pre-wrap;
     word-break: break-word;
-    resize: vertical;
   }
   .output-edit:empty::before {
     content: attr(data-placeholder);
@@ -804,6 +804,14 @@
 
   document.getElementById('convertBtn').addEventListener('click', convert);
 
+  // 原始文字欄位隨內容高度自動調整(min/max 高度由 CSS 控制)
+  const inputEl = document.getElementById('input');
+  function autoResizeInput() {
+    inputEl.style.height = 'auto';
+    inputEl.style.height = inputEl.scrollHeight + 'px';
+  }
+  inputEl.addEventListener('input', autoResizeInput);
+
   const outputEl = document.getElementById('output');
   let activeTextarea = outputEl;
   let lastOutputCaret = null;
@@ -862,13 +870,14 @@
   });
 
   document.getElementById('clearBtn').addEventListener('click', () => {
-    document.getElementById('input').value = '';
+    inputEl.value = '';
+    inputEl.style.height = '';
     outputEl.innerHTML = '';
     lastOutputCaret = null;
     document.getElementById('copyBtn').disabled = true;
     document.getElementById('status').textContent = '';
     document.getElementById('socialHint').classList.remove('show');
-    document.getElementById('input').focus();
+    inputEl.focus();
   });
 
   document.getElementById('copyBtn').addEventListener('click', async () => {
