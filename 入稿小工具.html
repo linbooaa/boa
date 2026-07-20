@@ -26,6 +26,26 @@
       --border: #4a4326;
     }
   }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #f6efd9;
+    --panel: #fffdf5;
+    --text: #3a3120;
+    --muted: #8a7a55;
+    --accent: #d1a020;
+    --accent-ink: #a67816;
+    --border: #e6d9ad;
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #221f10;
+    --panel: #2c2815;
+    --text: #f1e9d0;
+    --muted: #c2b48c;
+    --accent: #e8b93a;
+    --accent-ink: #f5cf6b;
+    --border: #4a4326;
+  }
   * { box-sizing: border-box; }
   body {
     margin: 0;
@@ -40,7 +60,32 @@
     margin: 0 auto;
     padding: 56px 24px 64px;
   }
-  header { margin-bottom: 32px; }
+  header {
+    margin-bottom: 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .theme-toggle {
+    flex: 0 0 auto;
+    width: 42px;
+    height: 42px;
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    font-size: 19px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.15s ease, border-color 0.15s ease;
+  }
+  .theme-toggle:hover { border-color: var(--accent); }
+  .theme-toggle:active { transform: scale(0.92); }
   .kicker {
     display: inline-block;
     font-size: 12px;
@@ -335,10 +380,13 @@
 <div class="page">
 
 <header>
-  <p class="kicker">Manuscript Studio</p>
-  <h1>入稿格式整理工具</h1>
-  <div class="rule"></div>
-  <p class="sub">貼上原始稿件,一鍵統一標點全半形、中英文間距與多餘空白。</p>
+  <div>
+    <p class="kicker">Manuscript Studio</p>
+    <h1>入稿格式整理工具</h1>
+    <div class="rule"></div>
+    <p class="sub">貼上原始稿件,一鍵統一標點全半形、中英文間距與多餘空白。</p>
+  </div>
+  <button id="themeToggle" class="theme-toggle" type="button" aria-label="切換深色/淺色模式">🌓</button>
 </header>
 
 <section class="card">
@@ -690,6 +738,33 @@
     });
   }
   initCheckConfig();
+
+  const STORAGE_KEY_THEME = 'manuscriptTool.theme';
+
+  function getEffectiveTheme() {
+    const attr = document.documentElement.getAttribute('data-theme');
+    if (attr === 'dark' || attr === 'light') return attr;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+
+  function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    const btn = document.getElementById('themeToggle');
+    btn.textContent = theme === 'dark' ? '🌙' : '☀️';
+    btn.title = theme === 'dark' ? '目前深色模式,點擊切換為淺色' : '目前淺色模式,點擊切換為深色';
+  }
+
+  function initTheme() {
+    let saved = null;
+    try { saved = localStorage.getItem(STORAGE_KEY_THEME); } catch (e) {}
+    applyTheme(saved === 'dark' || saved === 'light' ? saved : getEffectiveTheme());
+    document.getElementById('themeToggle').addEventListener('click', () => {
+      const next = getEffectiveTheme() === 'dark' ? 'light' : 'dark';
+      try { localStorage.setItem(STORAGE_KEY_THEME, next); } catch (e) {}
+      applyTheme(next);
+    });
+  }
+  initTheme();
 
   const EMOJI_GROUPS = [
     { label: '商用 / 行銷', items: ['🆕','🆓','🆒','🔒','🔓','🔑','⏳','⌛','📅','🗓️','📊','📈','📉','💼','🏢','🛒','🧾','💳','💸','🤑','📦','🚚','🚀','👑','💎','🥈','🥉','🏅','🎖️','☑️','✔️','🧧','🎫','🏬','🏦'] },
