@@ -429,7 +429,7 @@
   <label><input type="checkbox" id="optPunct" checked> 標點符號轉全形(, . ! ? ; : ( ) " ' → 全形)</label>
   <label><input type="checkbox" id="optSpacing" checked> 中文與英文/數字之間自動加空格,emoji 後方自動補一格</label>
   <label><input type="checkbox" id="optWhitespace" checked> 整理多餘空白與換行</label>
-  <label><input type="checkbox" id="optSocial"> 社群文案模式(句尾移除逗號/句號,保留驚嘆號、問號)</label>
+  <label><input type="checkbox" id="optSocial" checked> 社群文案模式(句尾移除逗號/句號,保留驚嘆號、問號)</label>
   <label>建議斷行:
     <select id="platformSelect">
       <option value="">不斷行(依原文)</option>
@@ -639,7 +639,7 @@
     return resolveOverlaps(matches);
   }
 
-  // 自動修正商標/產品名大小寫,回傳修正後文字與被修正的區間(用於轉換時框線標示提醒)
+  // 自動修正商標/產品名大小寫,回傳修正後的文字
   function correctBrandCasing(text) {
     const matches = [];
     getBrandMap().forEach(({ wrong, correct }) => {
@@ -657,16 +657,27 @@
 
     let result = '';
     let cursor = 0;
-    const fixedRanges = [];
     kept.forEach(m => {
-      result += text.slice(cursor, m.start);
-      const fixStart = result.length;
-      result += m.correct;
-      fixedRanges.push({ start: fixStart, end: fixStart + m.correct.length, type: 'brand-fixed', label: '已自動修正為「' + m.correct + '」' });
+      result += text.slice(cursor, m.start) + m.correct;
       cursor = m.end;
     });
     result += text.slice(cursor);
-    return { text: result, fixedRanges };
+    return result;
+  }
+
+  // 找出文字中「已經是正確大小寫」的商標/產品名,轉換完成後用框線標示提醒
+  // (與 findBrandMismatchRanges 不同:這裡是精確比對已修正好的文字,轉換後呼叫)
+  function findExactBrandRanges(text) {
+    const matches = [];
+    getProtectedPhrases().forEach(phrase => {
+      const re = new RegExp(escapeRegExp(phrase), 'g');
+      let m;
+      while ((m = re.exec(text))) {
+        matches.push({ start: m.index, end: m.index + phrase.length, type: 'brand-fixed', label: '商標/產品名稱:' + phrase });
+        if (re.lastIndex === m.index) re.lastIndex++;
+      }
+    });
+    return resolveOverlaps(matches);
   }
 
   function buildHighlightHtml(text, brandRanges) {
@@ -743,11 +754,36 @@
     return text;
   }
 
+  // 取得商標/產品名大小寫對照表中所有「正確」寫法,斷行時避免從中間切開
+  function getProtectedPhrases() {
+    const phrases = new Set();
+    getBrandMap().forEach(({ correct }) => { if (correct) phrases.add(correct); });
+    return Array.from(phrases);
+  }
+
+  function findProtectedIntervals(line, phrases) {
+    const intervals = [];
+    phrases.forEach(phrase => {
+      let idx = line.indexOf(phrase);
+      while (idx !== -1) {
+        intervals.push([idx, idx + phrase.length]);
+        idx = line.indexOf(phrase, idx + 1);
+      }
+    });
+    return intervals;
+  }
+
+  function isProtectedSplit(pos, intervals) {
+    return intervals.some(([s, e]) => pos > s && pos < e);
+  }
+
   function wrapByPlatform(text, maxChars) {
     if (!maxChars) return text;
     const breakChars = '，。！？、,.!?; ';
+    const phrases = getProtectedPhrases();
     return text.split('\n').map(line => {
       if (line.length <= maxChars) return line;
+      const intervals = findProtectedIntervals(line, phrases);
       const result = [];
       let start = 0;
       while (start < line.length) {
@@ -755,9 +791,16 @@
         if (end < line.length) {
           let bestBreak = -1;
           for (let i = end; i > start; i--) {
-            if (breakChars.includes(line[i - 1])) { bestBreak = i; break; }
+            if (breakChars.includes(line[i - 1]) && !isProtectedSplit(i, intervals)) { bestBreak = i; break; }
           }
-          if (bestBreak > start) end = bestBreak;
+          if (bestBreak > start) {
+            end = bestBreak;
+          } else {
+            // 找不到安全斷點(通常是產品名太長超過單行字數上限),
+            // 往後延伸到保護區間結束再切,寧可這行稍長也不要切斷產品名
+            const covering = intervals.find(([s, e2]) => s < end && end < e2);
+            if (covering) end = Math.min(covering[1], line.length);
+          }
         }
         result.push(line.slice(start, end).trim());
         start = end;
@@ -780,13 +823,11 @@
     if (doSpacing) text = addCjkSpacing(text);
     if (doSpacing) text = addEmojiSpacing(text);
     if (doWhitespace) text = text.replace(/[ \t]{2,}/g, ' ');
+    text = correctBrandCasing(text);
     if (platformChars) text = wrapByPlatform(text, platformChars);
 
-    const brandFix = correctBrandCasing(text);
-    text = brandFix.text;
-
     const outputEl = document.getElementById('output');
-    outputEl.innerHTML = buildHighlightHtml(text, brandFix.fixedRanges) ?? escapeHtml(text);
+    outputEl.innerHTML = buildHighlightHtml(text, findExactBrandRanges(text)) ?? escapeHtml(text);
     document.getElementById('copyBtn').disabled = text.length === 0;
     document.getElementById('status').textContent = '完成,共 ' + text.length + ' 字';
     document.getElementById('socialHint').classList.toggle('show', doSocial);
