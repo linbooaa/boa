@@ -331,32 +331,31 @@
     .legend .sw-sensitive, mark.flag-sensitive { background: #7a3a33; color: #ffe4df; }
     .legend .sw-brand, mark.flag-brand { background: #2f5178; color: #dcebfc; }
   }
-  .check-config {
-    margin: 0 0 24px;
+  details.check-config {
+    margin: 22px 0 0;
     border: 1px solid var(--border);
     border-radius: 14px;
     background: color-mix(in srgb, var(--accent) 5%, var(--bg));
-    padding: 16px 20px 4px;
+    padding: 4px 20px;
   }
-  .check-config > h2 {
-    padding: 0 0 12px;
-    margin: 0;
+  details.check-config summary {
+    cursor: pointer;
+    padding: 12px 0;
     font-size: 13.5px;
     font-weight: 600;
     color: var(--accent-ink);
     letter-spacing: 0.02em;
-    text-transform: none;
   }
-  .check-config .config-grid {
+  details.check-config .config-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 18px;
     padding-bottom: 18px;
   }
   @media (max-width: 800px) {
-    .check-config .config-grid { grid-template-columns: 1fr; }
+    details.check-config .config-grid { grid-template-columns: 1fr; }
   }
-  .check-config h3 {
+  details.check-config h3 {
     font-size: 12.5px;
     margin: 0 0 6px;
     color: var(--muted);
@@ -384,7 +383,7 @@
     color: var(--accent-ink);
     font-weight: 600;
   }
-  .check-config .config-hint {
+  details.check-config .config-hint {
     font-size: 12px;
     color: var(--muted);
     margin: 4px 0 8px;
@@ -429,22 +428,6 @@
   </label>
 </div>
 
-<div class="check-config">
-  <h2>敏感詞與商標對照表設定</h2>
-  <div class="config-grid">
-    <div>
-      <h3>敏感詞清單(每行一個詞)<button type="button" class="reset-link" id="resetSensitive">重設為預設清單</button></h3>
-      <p class="config-hint">符合的字詞只會在「整理後結果」用紅色標示,不會自動修改文字內容。 <span class="reset-status" id="resetSensitiveStatus"></span></p>
-      <textarea class="list-input" id="sensitiveWords"></textarea>
-    </div>
-    <div>
-      <h3>商標/產品名大小寫對照表(錯誤=&gt;正確,每行一組)<button type="button" class="reset-link" id="resetBrand">重設為預設清單</button></h3>
-      <p class="config-hint">例如 strix=&gt;Strix。比對時不分大小寫,只有大小寫寫錯時才會標示藍色提醒。井號開頭的行是分類註解,會被忽略。 <span class="reset-status" id="resetBrandStatus"></span></p>
-      <textarea class="list-input" id="brandMap"></textarea>
-    </div>
-  </div>
-</div>
-
 <div class="grid">
   <div class="col">
     <h2>原始文字</h2>
@@ -474,6 +457,22 @@
 </div>
 
 <p class="hint" id="socialHint">📌 小提醒:適度加入 emoji 能增加文案趣味與互動感;正式發布前,社群仍保有依平台屬性調整文字/文案的權利。</p>
+
+<details class="check-config">
+  <summary>敏感詞與商標對照表設定</summary>
+  <div class="config-grid">
+    <div>
+      <h3>敏感詞清單(每行一個詞)<button type="button" class="reset-link" id="resetSensitive">重設為預設清單</button></h3>
+      <p class="config-hint">符合的字詞只會在「整理後結果」用紅色標示,不會自動修改文字內容。 <span class="reset-status" id="resetSensitiveStatus"></span></p>
+      <textarea class="list-input" id="sensitiveWords"></textarea>
+    </div>
+    <div>
+      <h3>商標/產品名大小寫對照表(錯誤=&gt;正確,每行一組)<button type="button" class="reset-link" id="resetBrand">重設為預設清單</button></h3>
+      <p class="config-hint">例如 strix=&gt;Strix。比對時不分大小寫,只有大小寫寫錯時才會標示藍色提醒。井號開頭的行是分類註解,會被忽略。 <span class="reset-status" id="resetBrandStatus"></span></p>
+      <textarea class="list-input" id="brandMap"></textarea>
+    </div>
+  </div>
+</details>
 
 </section>
 
