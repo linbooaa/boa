@@ -429,7 +429,6 @@
   <label><input type="checkbox" id="optPunct" checked> 標點符號轉全形(, . ! ? ; : ( ) " ' → 全形)</label>
   <label><input type="checkbox" id="optSpacing" checked> 中文與英文/數字之間自動加空格,emoji 後方自動補一格</label>
   <label><input type="checkbox" id="optWhitespace" checked> 社群排版保護(保留多重空格與段落空行,避免 IG/FB 自動吃掉)</label>
-  <label><input type="checkbox" id="optSocial" checked> 社群文案模式(句尾移除逗號/句號,保留驚嘆號、問號)</label>
   <label>建議斷行:
     <select id="platformSelect">
       <option value="">不斷行(依原文)</option>
@@ -456,6 +455,8 @@
   </div>
 </div>
 
+<p class="hint show" id="emojiHint">📌 小提醒:適度加入 emoji 能增加文案趣味與互動感;正式發布前,社群仍保有依平台屬性調整文字/文案的權利。</p>
+
 <div class="actions">
   <button id="convertBtn">✎ 開始轉換</button>
   <button id="copyBtn" disabled>⧉ 複製結果</button>
@@ -467,8 +468,6 @@
   <h2>常用 Emoji(點擊插入到游標所在欄位)</h2>
   <div class="emoji-grid" id="emojiGrid"></div>
 </div>
-
-<p class="hint" id="socialHint">📌 小提醒:適度加入 emoji 能增加文案趣味與互動感;正式發布前,社群仍保有依平台屬性調整文字/文案的權利。</p>
 
 <details class="check-config">
   <summary>敏感詞與商標對照表設定</summary>
@@ -745,16 +744,6 @@
     if (caretOffset !== null) setCaretOffset(el, caretOffset);
   }
 
-  function stripSentenceEndPunctuation(text) {
-    // 社群文案:逗號/句號通常可省略,但驚嘆號、問號保留語氣
-    // 原始稿件多半是連續段落而非每句換行,因此逐一移除全文中的逗號/句號,
-    // 而非只處理每行行尾;半形 , . 仍需保留數字間的小數點/千分位。
-    text = text.replace(/(?<!\d)\.(?!\d)/g, '');
-    text = text.replace(/(?<!\d),(?!\d)/g, '');
-    text = text.replace(/[，。]/g, '');
-    return text;
-  }
-
   // 取得商標/產品名大小寫對照表中所有「正確」寫法,斷行時避免從中間切開
   function getProtectedPhrases() {
     const phrases = new Set();
@@ -815,12 +804,10 @@
     const doWhitespace = document.getElementById('optWhitespace').checked;
     const doPunct = document.getElementById('optPunct').checked;
     const doSpacing = document.getElementById('optSpacing').checked;
-    const doSocial = document.getElementById('optSocial').checked;
     const platformChars = parseInt(document.getElementById('platformSelect').value, 10) || 0;
 
     text = text.replace(/\r\n?/g, '\n');
     if (doPunct) text = normalizePunctuation(text);
-    if (doSocial) text = stripSentenceEndPunctuation(text);
     if (doSpacing) text = addCjkSpacing(text);
     if (doSpacing) text = addEmojiSpacing(text);
     text = correctBrandCasing(text);
@@ -831,7 +818,6 @@
     outputEl.innerHTML = buildHighlightHtml(text, findExactBrandRanges(text)) ?? escapeHtml(text);
     document.getElementById('copyBtn').disabled = text.length === 0;
     document.getElementById('status').textContent = '完成,共 ' + text.length + ' 字';
-    document.getElementById('socialHint').classList.toggle('show', doSocial);
   }
 
   const DEFAULT_SENSITIVE_WORDS = ['小編', '抽獎', '抽', '刀'];
@@ -1101,7 +1087,6 @@
     lastOutputCaret = null;
     document.getElementById('copyBtn').disabled = true;
     document.getElementById('status').textContent = '';
-    document.getElementById('socialHint').classList.remove('show');
     inputEl.focus();
   });
 
