@@ -185,8 +185,20 @@
   <section class="panel" data-panel="2">
     <h2>2. 圖文素材：從進稿表抓文案與圖</h2>
     <p class="hint">NB / DT 走雲端入稿（26Y_Media buy FB／IG 素材進稿.xlsx）。把該篇那一格的內容整格複製貼上，或上傳整份 xlsx 後搜尋；HH／通路走信件入稿的，直接把信裡的文案貼進來。</p>
-    <div class="tabs"><div class="tab active" data-tab="paste">貼上格子內容</div><div class="tab" data-tab="xlsx">上傳 xlsx</div></div>
-    <div class="tabpane active" data-tab="paste">
+    <div class="tabs"><div class="tab active" data-tab="auto">自動抓取（SharePoint）</div><div class="tab" data-tab="paste">貼上格子內容</div><div class="tab" data-tab="xlsx">上傳 xlsx</div></div>
+    <div class="tabpane active" data-tab="auto">
+      <div id="spBridgeMissing" class="alert">尚未偵測到「SharePoint 橋接」腳本。請先安裝 <a href="https://www.tampermonkey.net/" target="_blank">Tampermonkey</a>，再開啟 <a id="spInstallLink" href="sp-bridge.user.js">sp-bridge.user.js</a> 按「安裝」，然後重新整理本頁。（腳本只在這個網站運作，用你已登入的 SharePoint 身分讀檔）</div>
+      <div id="spBridgeOk" class="alert ok" style="display:none">橋接已就緒，會用你目前的 SharePoint 登入抓檔。</div>
+      <label class="f">進稿表連結（<span id="spPlatLabel">IG</span>；IG／FB 各記一個，依第 1 步平台切換）</label>
+      <input type="url" id="spSrcUrl" placeholder="https://asus-my.sharepoint.com/:x:/r/personal/…/Doc.aspx?sourcedoc={…}&file=26Y_Media buy IG素材進稿.xlsx…">
+      <div class="row">
+        <button class="btn" id="spFetchBtn">自動抓取本篇圖文</button>
+        <label><input type="checkbox" id="spAutoDl" checked> 同時下載素材並改名</label>
+        <span class="status" id="spStatus"></span>
+      </div>
+      <div style="max-height:260px;overflow:auto;margin-top:10px"><table id="spTable"><tbody></tbody></table></div>
+    </div>
+    <div class="tabpane" data-tab="paste">
       <textarea id="srcPaste" style="min-height:220px" placeholder="貼上進稿表那一格的全部內容（圖片連結、文案、溜溜樂入手的各通路連結…）"></textarea>
       <div class="row"><button class="btn" id="srcParseBtn">解析素材</button><span class="status" id="srcStatus"></span></div>
     </div>
@@ -649,6 +661,54 @@ function renderX(){
     tr.addEventListener('click',()=>{ $('srcPaste').value=x.text; applySource(parseSource(x.text)); document.querySelector('.tab[data-tab="paste"]').click(); toast('已帶入'); }); tb.appendChild(tr); });
 }
 $('xlsxSearch').addEventListener('input',renderX);
+
+/* ===== SharePoint 橋接（Tampermonkey）自動抓取 ===== */
+function spBridge(){ return window.__spBridge||null; }
+function spRefresh(){ const ok=!!spBridge(); $('spBridgeMissing').style.display=ok?'none':''; $('spBridgeOk').style.display=ok?'':'none'; }
+window.addEventListener('spbridge-ready',spRefresh); setTimeout(spRefresh,300); setTimeout(spRefresh,1500);
+function spKey(){ return 'console.spSrc.'+$('calPlatform').value; }
+function loadSpUrl(){ $('spSrcUrl').value=LS.get(spKey(),''); $('spPlatLabel').textContent=$('calPlatform').value; }
+loadSpUrl(); $('calPlatform').addEventListener('change',loadSpUrl); $('spSrcUrl').addEventListener('change',()=>LS.set(spKey(),$('spSrcUrl').value.trim()));
+let SPCELLS=[]; // {sheet,addr,text}
+function cellText(ws,addr){ const c=ws[addr]; if(!c) return ''; let t=String(c.w||c.v||''); if(c.l&&c.l.Target&&!t.includes('http')) t+='\n'+c.l.Target; return t; }
+function collectCells(wb){ const out=[]; wb.SheetNames.forEach(sn=>{ const ws=wb.Sheets[sn]; if(!ws['!ref']) return; const r=XLSX.utils.decode_range(ws['!ref']); for(let R=r.s.r;R<=r.e.r;R++) for(let C=r.s.c;C<=r.e.c;C++){ const addr=XLSX.utils.encode_cell({r:R,c:C}); const t=cellText(ws,addr); if(t.length>30) out.push({sheet:sn,addr,text:t,row:R,col:C}); } }); return out; }
+function scoreCell(cell,post){
+  const t=cell.text.toLowerCase(); let s=0;
+  const md=mdSlash(post.date); const [y,m,d]=post.date.split('-');
+  if(t.includes(md+' ')||t.includes(md+'\n')||new RegExp('(^|\\D)'+parseInt(m)+'/'+parseInt(d)+'(\\D|$)').test(t)) s+=5;
+  if(t.includes(y+'/'+parseInt(m)+'/'+parseInt(d))||t.includes(m+d)) s+=3;
+  const toks=post.name.toLowerCase().replace(/[（(].*$/,'').split(/[\s｜|、/,，]+/).filter(x=>x.length>=2);
+  toks.forEach(k=>{ if(t.includes(k)) s+=2; });
+  if(/https?:\/\//.test(t)) s+=1;
+  return s;
+}
+$('spFetchBtn').addEventListener('click',async()=>{
+  const br=spBridge(); if(!br){ spRefresh(); $('spStatus').textContent='尚未安裝橋接腳本'; return; }
+  const url=$('spSrcUrl').value.trim(); if(!url){ $('spStatus').textContent='請先貼進稿表連結'; return; }
+  if(!S.post){ $('spStatus').textContent='請先在第 1 步選一篇貼文'; return; }
+  LS.set(spKey(),url);
+  try{
+    $('spStatus').textContent='下載進稿表中…';
+    const buf=await br.fetchFile(url);
+    const wb=XLSX.read(new Uint8Array(buf),{type:'array',cellStyles:false});
+    SPCELLS=collectCells(wb);
+    const scored=SPCELLS.map(c=>Object.assign({score:scoreCell(c,S.post)},c)).filter(c=>c.score>=4).sort((a,b)=>b.score-a.score).slice(0,8);
+    const tb=$('spTable').querySelector('tbody'); tb.innerHTML='';
+    if(!scored.length){ $('spStatus').textContent='讀到 '+SPCELLS.length+' 格，但找不到像「'+S.post.name+'」的格子；可切到「上傳 xlsx」手動搜尋'; XROWS=SPCELLS.map(c=>({sheet:c.sheet,r:c.row+1,c:c.col+1,text:c.text})); renderX(); return; }
+    scored.forEach((c,i)=>{ const tr=document.createElement('tr'); tr.className='pick'+(i===0?' sel':'');
+      tr.innerHTML='<td style="width:130px"><span class="pill">'+esc(c.sheet)+'</span><br>'+esc(c.addr)+' ・ 相似度 '+c.score+'</td><td>'+esc(c.text.slice(0,180).replace(/\n/g,' ／ '))+'…</td><td><button class="btn sm">用這格</button></td>';
+      tr.addEventListener('click',()=>useSpCell(c)); tb.appendChild(tr); });
+    $('spStatus').textContent='找到 '+scored.length+' 個候選，已自動套用第一個；不對就點其他列';
+    await useSpCell(scored[0]);
+  }catch(e){ $('spStatus').textContent='失敗：'+e.message; }
+});
+async function useSpCell(c){
+  $('srcPaste').value=c.text; const parsed=parseSource(c.text); applySource(parsed);
+  if($('spAutoDl').checked&&S.media.length){ const br=spBridge(); let n=0;
+    for(const u of S.media){ try{ $('spStatus').textContent='下載素材 '+(n+1)+'/'+S.media.length+'…'; const f=await br.fetchMedia(u); const ext=(f.name.match(/\.[a-z0-9]{2,4}$/i)||[''])[0]||(f.type.includes('png')?'.png':f.type.includes('jpeg')?'.jpg':f.type.includes('mp4')?'.mp4':''); const fname=$('mediaName').textContent+(S.media.length>1?'_'+(n+1):'')+ext; const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([f.data],{type:f.type})); a.download=fname; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),4000); n++; }catch(e){ toast('素材下載失敗：'+e.message); } }
+    $('spStatus').textContent='完成：文案、連結已帶入，素材已下載 '+n+' 個（在下載資料夾）';
+  } else $('spStatus').textContent='完成：文案、連結已帶入';
+}
 
 /* ===================== 3. 文案校正（沿用入稿格式整理工具） ===================== */
 const CJK='一-鿿㐀-䶿豈-﫿぀-ヿ가-힣';
