@@ -663,9 +663,13 @@ function renderX(){
 $('xlsxSearch').addEventListener('input',renderX);
 
 /* ===== SharePoint 橋接（Tampermonkey）自動抓取 ===== */
-function spBridge(){ return window.__spBridge||null; }
-function spRefresh(){ const ok=!!spBridge(); $('spBridgeMissing').style.display=ok?'none':''; $('spBridgeOk').style.display=ok?'':'none'; }
-window.addEventListener('spbridge-ready',spRefresh); setTimeout(spRefresh,300); setTimeout(spRefresh,1500);
+// 透過事件與 Tampermonkey 腳本溝通（跨執行環境）；偵測靠 <html data-spbridge>
+const SP_PENDING={};
+function spCall(op,url){ return new Promise((resolve,reject)=>{ const id='r'+Date.now()+Math.random().toString(36).slice(2); SP_PENDING[id]={resolve,reject}; window.dispatchEvent(new CustomEvent('spbridge-request',{detail:JSON.stringify({id,op,url})})); setTimeout(()=>{ if(SP_PENDING[id]){ delete SP_PENDING[id]; reject(new Error('腳本沒有回應（逾時）')); } },120000); }); }
+window.addEventListener('spbridge-response',e=>{ let r; try{ r=JSON.parse(e.detail); }catch(err){ return; } const p=SP_PENDING[r.id]; if(!p) return; delete SP_PENDING[r.id]; if(!r.ok) return p.reject(new Error(r.error||'失敗')); const bin=atob(r.b64); const u8=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i); p.resolve({data:u8.buffer,name:r.name||'',type:r.type||''}); });
+function spBridge(){ if(document.documentElement.getAttribute('data-spbridge')||window.__spBridge) return { fetchFile:u=>window.__spBridge?window.__spBridge.fetchFile(u):spCall('file',u).then(r=>r.data), fetchMedia:u=>window.__spBridge?window.__spBridge.fetchMedia(u):spCall('media',u) }; return null; }
+function spRefresh(){ const ok=!!spBridge(); $('spBridgeMissing').style.display=ok?'none':''; $('spBridgeOk').style.display=ok?'':'none'; if(ok) $('spBridgeOk').textContent='橋接已就緒（v'+(document.documentElement.getAttribute('data-spbridge')||'1.0')+'），會用你目前的 SharePoint 登入抓檔。'; }
+window.addEventListener('spbridge-ready',spRefresh); [300,1500,4000].forEach(t=>setTimeout(()=>{ window.dispatchEvent(new Event('spbridge-ping')); spRefresh(); },t));
 function spKey(){ return 'console.spSrc.'+$('calPlatform').value; }
 function loadSpUrl(){ $('spSrcUrl').value=LS.get(spKey(),''); $('spPlatLabel').textContent=$('calPlatform').value; }
 loadSpUrl(); $('calPlatform').addEventListener('change',loadSpUrl); $('spSrcUrl').addEventListener('change',()=>LS.set(spKey(),$('spSrcUrl').value.trim()));
