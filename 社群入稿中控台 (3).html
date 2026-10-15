@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>社群入稿中控台</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#f3f7fc; --bg2:#e6eef9; --card:#ffffff; --ink:#1b2a41; --muted:#5f7390;
+    --gold:#0b63ce; --gold-dk:#084ea3; --line:#d2deee; --ok:#1f7a4d; --warn:#b85c1c; --bad:#b3262e;
+    --mark-s:#fbd5d5; --mark-b:#d6e6ff; --shadow:0 6px 24px rgba(11,99,206,.08);
+  }
+  :root[data-theme="dark"]{
+    --bg:#0f1826; --bg2:#152235; --card:#1a2a40; --ink:#e6eef9; --muted:#9fb3cc;
+    --gold:#4f9cf0; --gold-dk:#7fb8f7; --line:#2d4160; --ok:#6fcf97; --warn:#f0a35c; --bad:#f28b94;
+    --mark-s:#5c2a2a; --mark-b:#1f3a66; --shadow:0 6px 24px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:linear-gradient(180deg,var(--bg),var(--bg2));color:var(--ink);
+    font-family:"Microsoft JhengHei","微軟正黑體","PingFang TC","Noto Sans TC",sans-serif;font-size:15px;line-height:1.6}
+  a{color:var(--gold-dk)}
+  header{padding:28px 24px 10px;max-width:1240px;margin:0 auto}
+  .kicker{letter-spacing:.3em;font-size:11px;color:var(--gold-dk);font-weight:700}
+  h1{margin:4px 0 2px;font-size:30px;font-weight:800}
+  h1 small{font-size:13px;color:var(--muted);font-weight:400;margin-left:10px}
+  .sub{color:var(--muted);margin:0 0 10px}
+  .topbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:space-between}
+  .theme{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:4px 12px;cursor:pointer;color:var(--ink)}
+  main{max-width:1240px;margin:0 auto;padding:0 24px 60px}
+  .steps{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0 18px}
+  .step{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:7px 14px;cursor:pointer;font-weight:700;color:var(--muted);user-select:none}
+  .step.active{background:var(--gold);color:#fff;border-color:var(--gold)}
+  .step.done{color:var(--ok)}
+  .step .n{display:inline-block;width:20px;height:20px;border-radius:50%;background:var(--bg2);color:var(--ink);font-size:12px;text-align:center;line-height:20px;margin-right:6px}
+  .step.active .n{background:#fff;color:var(--gold-dk)}
+  section.panel{display:none;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px;box-shadow:var(--shadow)}
+  section.panel.active{display:block}
+  h2{margin:0 0 4px;font-size:20px}
+  .hint{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .grid{display:grid;gap:16px}
+  .grid>*{min-width:0}
+  .out,textarea{overflow-wrap:anywhere;word-break:break-word}
+  .g2{grid-template-columns:1fr 1fr}
+  .g3{grid-template-columns:1fr 1fr 1fr}
+  @media (max-width:900px){.g2,.g3{grid-template-columns:1fr}}
+  label.f{display:block;font-size:12px;color:var(--muted);font-weight:700;margin:8px 0 4px}
+  input[type=text],input[type=date],input[type=time],input[type=url],input[type=password],select,textarea{
+    width:100%;border:1px solid var(--line);border-radius:10px;padding:9px 11px;background:var(--bg);color:var(--ink);font:inherit}
+  textarea{min-height:120px;resize:vertical;line-height:1.7}
+  .out{min-height:160px;white-space:pre-wrap;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--bg);line-height:1.8;outline:none}
+  .out:focus{border-color:var(--gold)}
+  mark.s{background:var(--mark-s);border-radius:3px}
+  mark.b{background:var(--mark-b);border-radius:3px}
+  .btn{border:1px solid var(--gold);background:var(--gold);color:#fff;border-radius:999px;padding:9px 18px;font:inherit;font-weight:700;cursor:pointer}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .btn.ghost{background:transparent;color:var(--gold-dk)}
+  .btn.sm{padding:5px 12px;font-size:13px}
+  .btn.danger{border-color:var(--bad);background:var(--bad)}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px}
+  .status{font-size:13px;color:var(--muted)}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{border-bottom:1px solid var(--line);padding:8px 8px;text-align:left;vertical-align:top}
+  th{font-size:12px;color:var(--muted);letter-spacing:.05em}
+  tr.sel td{background:rgba(201,150,26,.12)}
+  tr.pick{cursor:pointer}
+  .pill{display:inline-block;border-radius:999px;padding:1px 9px;font-size:12px;font-weight:700;background:var(--bg2);color:var(--muted);margin-right:4px}
+  .pill.fb{background:#dbe7fb;color:#0b4fa8}.pill.ig{background:#fde2ee;color:#be185d}
+  .pill.red{background:var(--mark-s);color:var(--bad)}.pill.ok{background:#d9f1e3;color:var(--ok)}
+  :root[data-theme="dark"] .pill.fb{background:#1e2f5c;color:#9db8ff}
+  :root[data-theme="dark"] .pill.ig{background:#5c1e3a;color:#ffa3cc}
+  :root[data-theme="dark"] .pill.ok{background:#1f4a30;color:#9fe3b9}
+  .check{list-style:none;margin:0;padding:0}
+  .check li{display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-bottom:1px dashed var(--line)}
+  .check input{margin-top:5px}
+  .alert{border-left:4px solid var(--warn);background:rgba(184,84,28,.08);padding:10px 12px;border-radius:8px;margin:10px 0;font-size:14px}
+  .alert.bad{border-color:var(--bad);background:rgba(163,38,47,.08)}
+  .alert.ok{border-color:var(--ok);background:rgba(47,125,79,.08)}
+  .issues{margin:10px 0 0;padding:0;list-style:none;font-size:14px}
+  .issues li{padding:5px 0;border-bottom:1px dashed var(--line)}
+  .issues li b{color:var(--warn)}
+  .issues li.bad b{color:var(--bad)}
+  .issues li.ok b{color:var(--ok)}
+  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:12px}
+  .tab{padding:6px 12px;cursor:pointer;color:var(--muted);font-weight:700;border-bottom:2px solid transparent}
+  .tab.active{color:var(--gold-dk);border-color:var(--gold)}
+  .tabpane{display:none}.tabpane.active{display:block}
+  .imgbox{display:flex;gap:14px;flex-wrap:wrap}
+  .imgbox .card{flex:1 1 260px;border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--bg)}
+  .mono{font-family:Consolas,Menlo,monospace;font-size:12.5px;word-break:break-all}
+  .cur{position:sticky;top:0;z-index:5;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 14px;margin-bottom:14px;display:flex;gap:14px;align-items:center;flex-wrap:wrap;box-shadow:var(--shadow)}
+  .cur b{font-size:16px}
+  .emoji-bar{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+  .emoji-bar button{border:1px solid var(--line);background:var(--card);border-radius:8px;font-size:18px;cursor:pointer;padding:2px 6px}
+  details{border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin-top:14px;background:var(--bg)}
+  summary{cursor:pointer;font-weight:700;color:var(--gold-dk)}
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 18px;border-radius:999px;opacity:0;transition:.25s;pointer-events:none;z-index:50}
+  .toast.show{opacity:1}
+  footer{text-align:center;color:var(--muted);font-size:12px;margin-top:30px}
+  .kbd{font-size:12px;background:var(--bg2);border:1px solid var(--line);border-radius:4px;padding:0 5px}
+</style>
+</head>
+<body>
+<header>
+  <div class="topbar">
+    <div>
+      <div class="kicker">MANUSCRIPT CONSOLE</div>
+      <h1>社群入稿中控台 <small>行事曆 → 圖文 → 校正 → UTM → 發布 → 通知信</small></h1>
+      <p class="sub">依「社群貼文入稿 SOP」把一篇貼文從行事曆走到 Business Suite 排程，每一步的規則都內建檢查。</p>
+    </div>
+    <div class="row" style="margin:0">
+      <a class="btn ghost sm" href="入稿小工具.html" target="_blank">入稿格式整理工具 ↗</a>
+      <button class="theme" id="themeBtn" title="切換主題">☀️</button>
+    </div>
+  </div>
+</header>
+<main>
+  <div class="cur" id="curBar">
+    <span class="pill" id="curPlatform">—</span>
+    <b id="curName">尚未選擇貼文</b>
+    <span class="status" id="curMeta"></span>
+    <span style="flex:1"></span>
+    <button class="btn ghost sm" id="resetBtn">清除本篇</button>
+  </div>
+
+  <div class="steps" id="steps">
+    <div class="step active" data-step="1"><span class="n">1</span>行事曆</div>
+    <div class="step" data-step="2"><span class="n">2</span>圖文素材</div>
+    <div class="step" data-step="3"><span class="n">3</span>文案校正</div>
+    <div class="step" data-step="4"><span class="n">4</span>UTM 與留言</div>
+    <div class="step" data-step="5"><span class="n">5</span>排程發布</div>
+    <div class="step" data-step="6"><span class="n">6</span>通知信</div>
+    <div class="step" data-step="7"><span class="n">7</span>設定</div>
+  </div>
+
+  <!-- 1 行事曆 -->
+  <section class="panel active" data-panel="1">
+    <h2>1. 行事曆：今天要發什麼</h2>
+    <p class="hint">在 Google 試算表的行事曆分頁框選範圍（含「10月18日」那列日期標頭）複製，貼到下面即可解析；或填入「發布到網路」的 CSV 連結自動抓取。紅字＝未入稿、黑字＝已入稿（貼上時顏色會遺失，請自行判斷）。</p>
+    <div class="grid g2">
+      <div>
+        <label class="f">平台</label>
+        <select id="calPlatform"><option value="IG">ASUS IG</option><option value="FB">ASUS FB</option></select>
+        <label class="f">貼上行事曆格子（含日期列）</label>
+        <textarea id="calPaste" placeholder="從試算表複製後貼上，例如：&#10;10月14日	10月15日	10月16日	10月17日	10月18日&#10;TUF Gaming A16(Andy,1830)		ProArt P14/P16正式開賣(Ashley,2000)		華碩服務PLUS(Jennie,2130)"></textarea>
+        <div class="row">
+          <button class="btn" id="calParseBtn">解析行事曆</button>
+          <span class="status" id="calStatus"></span>
+        </div>
+        <details open><summary>自動讀取：Apps Script 連結（可讀紅／黑狀態、發完文一鍵改黑字）</summary>
+          <p class="hint">在行事曆試算表「擴充功能 → Apps Script」貼入「行事曆橋接.gs」並部署成網路應用程式（執行身分：我；存取權：知道連結的任何人），把網址貼在這裡。</p>
+          <input type="url" id="gasUrl" placeholder="https://script.google.com/macros/s/…/exec（IG、FB 各自記一個，依上方平台切換）">
+          <div class="row"><select id="gasSheet" style="max-width:160px"><option value="">（本月分頁）</option></select><button class="btn sm" id="gasFetchBtn">讀取行事曆</button><button class="btn ghost sm" id="gasSheetsBtn">列出分頁</button></div>
+        </details>
+        <details><summary>改用「發布到網路」CSV 連結</summary>
+          <label class="f">CSV 連結（檔案 → 共用 → 發布到網路 → 選分頁 → CSV）</label>
+          <input type="url" id="calCsvUrl" placeholder="https://docs.google.com/spreadsheets/d/e/…/pub?gid=…&single=true&output=csv">
+          <div class="row"><button class="btn ghost sm" id="calFetchBtn">抓取</button></div>
+        </details>
+      </div>
+      <div>
+        <label class="f">篩選日期（留空＝全部）</label>
+        <div class="row" style="margin:0"><input type="date" id="calDate" style="max-width:200px"><button class="btn ghost sm" id="calToday">今天</button><button class="btn ghost sm" id="calClear">全部</button></div>
+        <div style="margin-top:12px;max-height:420px;overflow:auto">
+          <table id="calTable"><thead><tr><th>日期</th><th>貼文</th><th>MKT</th><th>時間</th><th></th></tr></thead><tbody><tr><td colspan="5" class="status">尚未解析</td></tr></tbody></table>
+        </div>
+        <div class="row"><button class="btn ghost sm" id="calManualBtn">＋ 手動新增一篇</button></div>
+      </div>
+    </div>
+    <details><summary>入稿提醒信（每週固定提醒 MKT）</summary>
+      <p class="hint">依 SOP：提前一個工作天入稿；寄給有預約版面的 MKT，CC 主管、Mentor。選日期區間後自動列出 MKT 並產生信件。</p>
+      <div class="grid g3">
+        <div><label class="f">起</label><input type="date" id="remFrom"></div>
+        <div><label class="f">迄</label><input type="date" id="remTo"></div>
+        <div><label class="f">&nbsp;</label><button class="btn sm" id="remGen">產生提醒信</button></div>
+      </div>
+      <label class="f">主旨</label><input type="text" id="remSubject">
+      <label class="f">收件人 / CC</label><input type="text" id="remTo2">
+      <label class="f">內容</label><textarea id="remBody"></textarea>
+      <div class="row"><button class="btn ghost sm" data-copy="remBody">複製內容</button><a class="btn ghost sm" id="remMailto" href="#" target="_blank">用 Outlook 開啟 ↗</a></div>
+    </details>
+  </section>
+
+  <!-- 2 圖文素材 -->
+  <section class="panel" data-panel="2">
+    <h2>2. 圖文素材：從進稿表抓文案與圖</h2>
+    <p class="hint">NB / DT 走雲端入稿（26Y_Media buy FB／IG 素材進稿.xlsx）。把該篇那一格的內容整格複製貼上，或上傳整份 xlsx 後搜尋；HH／通路走信件入稿的，直接把信裡的文案貼進來。</p>
+    <div class="tabs"><div class="tab active" data-tab="paste">貼上格子內容</div><div class="tab" data-tab="xlsx">上傳 xlsx</div></div>
+    <div class="tabpane active" data-tab="paste">
+      <textarea id="srcPaste" style="min-height:220px" placeholder="貼上進稿表那一格的全部內容（圖片連結、文案、溜溜樂入手的各通路連結…）"></textarea>
+      <div class="row"><button class="btn" id="srcParseBtn">解析素材</button><span class="status" id="srcStatus"></span></div>
+    </div>
+    <div class="tabpane" data-tab="xlsx">
+      <input type="file" id="xlsxFile" accept=".xlsx,.xlsm,.xls,.csv">
+      <div class="row"><input type="text" id="xlsxSearch" placeholder="搜尋貼文名稱或日期，例如 服務PLUS 或 10/18" style="max-width:360px"><span class="status" id="xlsxStatus"></span></div>
+      <div style="max-height:320px;overflow:auto;margin-top:10px"><table id="xlsxTable"><tbody></tbody></table></div>
+    </div>
+    <div class="grid g2" style="margin-top:16px">
+      <div>
+        <label class="f">圖片／影片素材（SharePoint 連結）</label>
+        <div class="imgbox" id="mediaList"><div class="card status">尚未解析</div></div>
+        <p class="hint" style="margin-top:8px">檔名建議：<span class="mono" id="mediaName">預約日期-發文時間_發文主題</span> <button class="btn ghost sm" data-copy="mediaName">複製檔名</button></p>
+      </div>
+      <div>
+        <label class="f">原始文案（將帶到下一步）</label>
+        <textarea id="srcCopy" style="min-height:200px"></textarea>
+        <label class="f">導購／留言連結（每行「通路：網址」）</label>
+        <textarea id="srcLinks" style="min-height:120px" placeholder="ASUS Store：https://…&#10;MOMO：https://…"></textarea>
+      </div>
+    </div>
+    <div class="row"><button class="btn" id="srcNextBtn">帶入文案校正 →</button></div>
+  </section>
+
+  <!-- 3 文案校正 -->
+  <section class="panel" data-panel="3">
+    <h2>3. 文案校正</h2>
+    <p class="hint">沿用入稿格式整理工具的規則（標點全形、中英空格、商標大小寫），再加上 SOP 檢查：「抽」字、文末逗號、重複 hashtag、FB 專屬 hashtag、內文網址、Expert 系列 emoji 數量。</p>
+    <div class="grid g2">
+      <div>
+        <label class="f">原始文案</label>
+        <textarea id="copyIn" style="min-height:300px"></textarea>
+        <div class="row">
+          <label><input type="checkbox" id="optPunct" checked> 標點全形</label>
+          <label><input type="checkbox" id="optSpacing" checked> 中英／emoji 空格</label>
+          <label><input type="checkbox" id="optBrand" checked> 商標大小寫</label>
+          <label><input type="checkbox" id="optZwsp"> 空行保護（零寬空白）</label>
+        </div>
+        <div class="row">
+          <label class="f" style="margin:0">產品線</label>
+          <select id="productLine" style="max-width:220px"></select>
+          <label class="f" style="margin:0">FB 專屬 hashtag</label>
+          <select id="fbTag" style="max-width:240px">
+            <option value="">（IG 不加）</option>
+            <option value="#資訊最前線">#資訊最前線（產品溝通／得獎）</option>
+            <option value="#ASUS同樂會">#ASUS同樂會（促銷／VIP）</option>
+            <option value="#生活來點電">#生活來點電（活動）</option>
+          </select>
+        </div>
+        <div class="row"><button class="btn" id="convertBtn">✎ 開始轉換與檢查</button><button class="btn ghost" id="copyOutBtn">⧉ 複製整理後文案</button></div>
+        <div class="emoji-bar" id="emojiBar"></div>
+      </div>
+      <div>
+        <label class="f">整理後文案（可直接編輯；紅＝敏感詞、藍＝商標）</label>
+        <div class="out" id="copyOut" contenteditable="true"></div>
+        <div class="status" id="copyStatus"></div>
+        <ul class="issues" id="copyIssues"></ul>
+      </div>
+    </div>
+    <div class="row"><button class="btn" id="copyNextBtn">下一步：UTM 與留言 →</button></div>
+  </section>
+
+  <!-- 4 UTM -->
+  <section class="panel" data-panel="4">
+    <h2>4. UTM 與留言連結</h2>
+    <p class="hint">ASUS 網域才帶 code（Social sheet）；PChome／momo／Yahoo 用各自的 sheet 規則；其他電商（燦坤、全國電子、博客來…）只縮網址；蝦皮請交 Mentor。已帶過 code 或縮過的網址會先清乾淨再重新帶。</p>
+    <div class="grid g3">
+      <div><label class="f">上線日期</label><input type="date" id="utmDate"></div>
+      <div><label class="f">產品線（utm 用）</label><select id="utmProduct"></select></div>
+      <div><label class="f">檔期名稱</label><input type="text" id="utmPeriod" placeholder="26yq4 / aipc / cnysp / bts"></div>
+      <div><label class="f">TRAFFIC_SOURCE</label><select id="utmSource"><option>facebook</option><option>instagram</option><option>youtube</option></select></div>
+      <div><label class="f">素材類別</label><select id="utmType"><option value="goods">goods 產品宣傳</option><option value="campaign">campaign 活動宣傳</option><option value="sp">sp 促銷優惠</option><option value="social">social 社群創意貼文</option><option value="agency">agency 社群代理商</option><option value="vip">vip 通路會員宣傳</option><option value="others">others 其他</option></select></div>
+      <div><label class="f">素材來源</label><select id="utmOrigin"><option value="mkt">mkt（NB／DT 的 MKT）</option><option value="create">create（social）</option><option value="agent">agent</option><option value="ec">ec（客製網／教育商店／store）</option><option value="channel">channel</option><option value="others">others</option></select></div>
+      <div><label class="f">產品型號（小寫，多個用 -）</label><input type="text" id="utmModel" placeholder="例 ux3405 或 h7604-w7604，無則 na"></div>
+      <div><label class="f">其他備註</label><input type="text" id="utmNote" placeholder="reels / ytpost / video / story / reply，無則 na"></div>
+      <div><label class="f">固定欄位</label><input type="text" value="廣告形式 asustw ・ ca/wm na ・ MEDIUM social" disabled></div>
+    </div>
+    <label class="f">連結清單（每行「通路：網址」，由第 2 步帶入）</label>
+    <textarea id="utmLinks" style="min-height:120px"></textarea>
+    <div class="row"><button class="btn" id="utmGenBtn">產生 UTM 網址</button><span class="status" id="utmStatus"></span></div>
+    <div style="overflow:auto;margin-top:12px">
+      <table id="utmTable"><thead><tr><th>#</th><th>通路</th><th>處理方式</th><th>CAMPAIGN_NAME / AD_CONTENT</th><th>TAGGED_URL</th><th>縮網址</th></tr></thead><tbody></tbody></table>
+    </div>
+    <details><summary>Short.io 自動縮網址（選填）</summary>
+      <p class="hint">在 Short.io 後台建立 API key（Integrations &amp; API → 勾選 Public，限定 domain tw.asus.click）後貼在這裡，就能一鍵縮網址；不填則請手動到 Short.io 縮，再把結果貼回表格的「縮網址」欄。Key 只存在這台瀏覽器。</p>
+      <div class="grid g2">
+        <div><label class="f">API key（public）</label><input type="password" id="shortKey"></div>
+        <div><label class="f">Domain</label><input type="text" id="shortDomain" value="tw.asus.click"></div>
+      </div>
+      <div class="row"><button class="btn ghost sm" id="shortAllBtn">全部縮網址</button><a class="btn ghost sm" href="https://app.short.io/" target="_blank">開啟 Short.io ↗</a></div>
+    </details>
+    <div class="grid g2" style="margin-top:16px">
+      <div>
+        <label class="f">留言區文字（依產品線排電商順序）</label>
+        <div class="out" id="commentOut" contenteditable="true"></div>
+        <div class="row"><button class="btn ghost sm" id="commentCopyBtn">複製留言文字</button><span class="status" id="commentStatus"></span></div>
+      </div>
+      <div>
+        <label class="f">回填 UTM Link Tag Generator（到該 sheet 最後一列的 DESTINATION_URL 格按 Ctrl+V，一次貼完 Optional 之前的所有欄）</label>
+        <textarea id="utmRows" style="min-height:120px" readonly></textarea>
+        <div class="row"><button class="btn sm" data-copy="utmRows">複製左半段（DESTINATION_URL → AD_CONTENT Optional）</button></div>
+        <label class="f">縮網址＋貼文連結（貼到 MINIFIED URL 欄；TAGGED_URL 公式欄不要動）</label>
+        <textarea id="utmRows2" style="min-height:60px" readonly></textarea>
+        <div class="row"><input type="text" id="postUrl" placeholder="貼文連結（排程後從 Business Suite 複製）" style="max-width:360px"><button class="btn ghost sm" data-copy="utmRows2">複製右半段</button></div>
+        <p class="hint">欄位順序：DESTINATION_URL｜上線日期｜產品線｜廣告形式｜檔期名稱｜ca/wm｜Optional｜TRAFFIC_SOURCE｜MEDIUM｜KEYWORD｜上線日期｜產品線｜廣告形式｜檔期名稱｜ca/wm｜產品型號｜素材｜受眾包｜類型｜Optional。與實際表不符時請到「設定」調整。</p>
+      </div>
+    </div>
+    <div class="row"><button class="btn" id="utmNextBtn">下一步：排程發布 →</button></div>
+  </section>
+
+  <!-- 5 排程發布 -->
+  <section class="panel" data-panel="5">
+    <h2>5. 排程發布（Meta Business Suite）</h2>
+    <div class="alert bad"><b>任何情況都不要按「立即發布」。</b>部分產品尚未解禁，誤發是嚴重洩密。一律「排定時間」後確認無誤再發布。</div>
+    <div class="grid g2">
+      <div>
+        <label class="f">發布時間</label>
+        <div class="row" style="margin:0"><input type="date" id="pubDate" style="max-width:180px"><input type="time" id="pubTime" style="max-width:140px"></div>
+        <label class="f">最終文案</label>
+        <div class="out" id="finalCopy" contenteditable="true"></div>
+        <div class="row"><button class="btn" id="finalCopyBtn">⧉ 複製文案</button></div>
+        <label class="f">留言</label>
+        <div class="out" id="finalComment" contenteditable="true" style="min-height:90px"></div>
+        <div class="row"><button class="btn ghost" id="finalCommentBtn">⧉ 複製留言</button></div>
+        <label class="f">ALT 文字（從文案中找一句能描述圖片的話）</label>
+        <input type="text" id="altText">
+      </div>
+      <div>
+        <div class="row" style="margin:0 0 10px">
+          <a class="btn" href="https://business.facebook.com/latest/home" target="_blank">開啟 Meta Business Suite ↗</a>
+          <button class="btn ghost" id="openMediaBtn">開啟素材連結下載</button>
+        </div>
+        <ul class="check" id="pubCheck"></ul>
+      </div>
+    </div>
+    <div class="row"><button class="btn" id="pubNextBtn">已排程，產生通知信 →</button></div>
+  </section>
+
+  <!-- 6 通知信 -->
+  <section class="panel" data-panel="6">
+    <h2>6. 入稿通知信</h2>
+    <p class="hint">雲端入稿無原信，須開新信；信件入稿直接「全部回覆」原信。初期先寄給 Mentor 過目（下方可一鍵包成「以下是我要寄給 ○○ 的入稿通知」）。修改文案的說明請用正向語氣（例如「精簡文案」）。</p>
+    <div class="grid g3">
+      <div><label class="f">MKT</label><select id="mailMkt"></select></div>
+      <div><label class="f">寄送對象</label><select id="mailMode"><option value="mentor">先給 Mentor 過目</option><option value="mkt">直接寄給 MKT</option></select></div>
+      <div><label class="f">有修改文案？</label><select id="mailEdited"><option value="no">無修改</option><option value="yes">有微調（附說明）</option></select></div>
+    </div>
+    <div class="grid g2">
+      <div><label class="f">修改說明（有修改時）</label><input type="text" id="mailEditNote" placeholder="例：協助將「抽」字改為「有機會獲得」以避免影響觸及"></div>
+      <div><label class="f">貼文截圖（放進表格右欄；可先不放，貼到 Outlook 後再貼圖）</label><input type="file" id="mailShot" accept="image/*"></div>
+    </div>
+    <div class="row"><button class="btn" id="mailGenBtn">產生通知信</button><span class="status" id="mailStatus"></span></div>
+    <div class="grid g2" style="margin-top:8px">
+      <div><label class="f">收件人</label><input type="text" id="mailTo"></div>
+      <div><label class="f">CC</label><input type="text" id="mailCc"></div>
+    </div>
+    <label class="f">主旨</label><input type="text" id="mailSubject">
+    <label class="f">信件預覽（可直接編輯）</label>
+    <div class="out" id="mailHtml" contenteditable="true" style="background:#fff;color:#222;min-height:240px"></div>
+    <div class="row">
+      <button class="btn" id="mailRichBtn">⧉ 複製成 Outlook 格式（含表格）</button>
+      <button class="btn" id="mailEmlBtn">⬇ 下載 Outlook 草稿 (.eml)</button>
+      <a class="btn ghost sm" id="mailMailto" href="#" target="_blank">mailto 純文字 ↗</a>
+      <button class="btn ghost sm" data-copy="mailSubject">複製主旨</button>
+    </div>
+    <p class="hint" style="margin-top:8px">「複製成 Outlook 格式」後在 Outlook 新郵件按 <span class="kbd">Ctrl+V</span>，表格與連結會保留；.eml 檔用 Outlook 桌面版打開會直接是可編輯的草稿（含收件人、CC、截圖）。</p>
+    <textarea id="mailBody" style="display:none"></textarea>
+    <div class="alert ok" style="margin-top:16px">
+      <b>最後一步：行事曆改黑字</b>（已入稿），並把預約名稱改成好辨識的實際主題。
+      <div class="row" style="margin-top:8px"><input type="text" id="markName" placeholder="新的貼文名稱（留空＝不改名）" style="max-width:360px"><button class="btn sm" id="markBtn">一鍵改黑字</button><span class="status" id="markStatus"></span></div>
+      <p class="hint" style="margin:6px 0 0">需要第 1 步設定 Apps Script 連結；沒有的話請手動到試算表改。</p>
+    </div>
+    <details><summary>SEO 表（發布後）</summary>
+      <p class="hint">項目／ID／Owner 複製貼上；更新時間＝發文時間；品牌 ASUS／ROG；平台 FB／IG；關鍵字從 hashtag 挑 3 個；社群貼文放連結（無則「待補」）；ALT 用上一步的文字。</p>
+      <textarea id="seoRow" readonly style="min-height:70px"></textarea>
+      <div class="row"><button class="btn ghost sm" data-copy="seoRow">複製 SEO 列</button></div>
+    </details>
+  </section>
+
+  <!-- 7 設定 -->
+  <section class="panel" data-panel="7">
+    <h2>7. 設定</h2>
+    <div class="grid g2">
+      <div>
+        <label class="f">MKT 名單（名字｜產品｜Email｜CC 主管 Email）— 信箱在這裡填，只存在這台瀏覽器，不會進網頁檔案</label>
+        <textarea id="cfgMkt" style="min-height:260px"></textarea>
+        <label class="f">Mentor（名字｜Email）</label>
+        <input type="text" id="cfgMentor" placeholder="名字｜信箱">
+        <label class="f">固定 CC（逗號分隔）</label>
+        <input type="text" id="cfgCc">
+        <label class="f">自己的名字（信件署名）</label>
+        <input type="text" id="cfgMe">
+      </div>
+      <div>
+        <label class="f">敏感詞／禁用字（一行一個，僅標示）</label>
+        <textarea id="cfgSensitive" style="min-height:90px"></textarea>
+        <label class="f">商標／產品名大小寫（錯誤=>正確）</label>
+        <textarea id="cfgBrand" style="min-height:200px"></textarea>
+        <label class="f">電商順序（產品線｜依序的通路）</label>
+        <textarea id="cfgEcOrder" style="min-height:120px"></textarea>
+        <label class="f">UTM 回填欄位順序：左半段（可用：url,date,product,adform,period,cawm,optional,source,medium,keyword,model,material,audience,type,tagged,short,posturl,blank）</label>
+        <input type="text" id="cfgUtmCols">
+        <label class="f">右半段（TAGGED_URL 公式之後）</label>
+        <input type="text" id="cfgUtmCols2">
+      </div>
+    </div>
+    <div class="row"><button class="btn" id="cfgSaveBtn">儲存設定</button><button class="btn ghost" id="cfgResetBtn">還原預設</button><span class="status" id="cfgStatus"></span></div>
+  </section>
+
+  <footer>社群入稿中控台 ・ 依 ASUS 社群貼文入稿 SOP 建置 ・ 資料只存在這台瀏覽器</footer>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+'use strict';
+const $ = id => document.getElementById(id);
+const ZWSP = '​';
+
+/* ===================== 預設設定 ===================== */
+const DEFAULT_MKT = [
+'Cathy｜Zenbook｜｜','Donna｜Vivobook｜｜','Barry｜家用DT、AiO、鍵鼠｜｜','Julie｜商用NB、DT｜｜','Ashley｜ProArt、Chromebook｜｜','Andy｜TUF｜｜',
+'Leo｜Social｜｜','Joyce｜Store｜｜','White｜Store、預約賞機｜｜','Emily｜客製網｜｜','Tina｜會員日｜｜','Sara｜教育商店、校園徵才｜｜','Ruby｜三課課長｜｜','Jennie｜NB 主管｜｜','Gill｜NB 主管｜｜'
+].join('\n');
+const DEFAULT_SENSITIVE = ['抽獎','抽','小編','刀'].join('\n');
+const DEFAULT_BRAND = [
+'asus=>ASUS','rog=>ROG','tuf=>TUF','tuf gaming=>TUF Gaming','proart=>ProArt','zenbook=>Zenbook','vivobook=>Vivobook',
+'expertbook=>ExpertBook','expertcenter=>ExpertCenter','chromebook=>Chromebook','zenwifi=>ZenWiFi','zenfone=>Zenfone','rog phone=>ROG Phone',
+'zenscreen=>ZenScreen','rog strix=>ROG Strix','strix=>Strix','scar=>SCAR','zephyrus=>Zephyrus','rog flow=>ROG Flow','rog ally=>ROG Ally',
+'rog ally x=>ROG Ally X','rog xbox ally=>ROG Xbox Ally','tuf gaming a14=>TUF Gaming A14','tuf gaming a16=>TUF Gaming A16','tuf gaming a18=>TUF Gaming A18',
+'tuf gaming f16=>TUF Gaming F16','proart display=>ProArt Display','proart station=>ProArt Station','proart studiobook=>ProArt Studiobook','aimesh=>AiMesh',
+'zenbook duo=>Zenbook Duo','vivobook s=>Vivobook S','vivobook pro=>Vivobook Pro','vivobook go=>Vivobook Go','expertbook ultra=>ExpertBook Ultra',
+'rog strix scar 18=>ROG Strix SCAR 18','rog strix scar 16=>ROG Strix SCAR 16','rog strix g16=>ROG Strix G16','rog strix g18=>ROG Strix G18',
+'rog zephyrus g14=>ROG Zephyrus G14','rog zephyrus g16=>ROG Zephyrus G16','copilot=>Copilot','intel=>Intel','amd=>AMD','nvidia=>NVIDIA','geforce=>GeForce',
+'oled=>OLED','wi-fi=>Wi-Fi','服務plus=>服務PLUS','asus store=>ASUS Store','momo=>momo','pchome=>PChome','yahoo=>Yahoo'
+].join('\n');
+const DEFAULT_EC_ORDER = [
+'家用NB｜ASUS Store, momo, PChome, Yahoo, 蝦皮, 燦坤, 全國電子',
+'ROG NB｜ASUS Store, momo, PChome, Yahoo, 蝦皮, 燦坤, 全國電子',
+'ROG Ally｜ASUS Store, momo, PChome, Yahoo, 蝦皮, 燦坤, 全國電子',
+'家用DT｜PChome, momo, Yahoo, 燦坤, 蝦皮, 全國電子',
+'家用AIO｜ASUS Store, PChome, momo, Yahoo, 燦坤, 蝦皮, 全國電子',
+'電競DT｜ASUS Store, PChome, momo, Yahoo, 燦坤, 蝦皮, 全國電子',
+'ASUS配件｜ASUS Store',
+'ROG配件｜ASUS Store',
+'其他｜ASUS Store, momo, PChome, Yahoo'
+].join('\n');
+// 產品線：顯示名稱｜utm 產品線代碼｜電商順序群組｜emoji 風格
+const PRODUCT_LINES = [
+['Vivobook','vivobook','家用NB','normal'],['Zenbook','zenbook','家用NB','normal'],['ProArt NB (Studiobook/P16)','proart','家用NB','normal'],
+['TUF Gaming','tufgaming','家用NB','normal'],['ROG NB','rognb','ROG NB','normal'],['ROG Ally','rognb','ROG Ally','normal'],
+['家用 DT','dt','家用DT','normal'],['家用 AiO','aio','家用AIO','normal'],['電競 DT (ROG DT)','rogdt','電競DT','normal'],
+['ProArt Station (桌機)','station','其他','normal'],['ExpertBook','expertbook','其他','expert'],['ExpertCenter','expertcenter','其他','expert'],
+['Chromebook','chromebook','其他','cute'],['Zenfone','zenfone','其他','normal'],['ROG Phone','rogphone','其他','normal'],
+['ASUS 配件','accessories','ASUS配件','normal'],['ROG 配件','accessories','ROG配件','normal'],['Store / EC 活動','ec','其他','normal'],
+['Software','software','其他','normal'],['ASUS VIP 活動','asusvip','其他','normal'],['Monitor','monitor','其他','normal'],
+['Commercial 商用全系列','commercial','其他','expert'],['Laptops 跨產品線','laptops','家用NB','normal'],['ASUS 全產品線','asus','其他','normal']
+];
+const EMOJIS = ['✨','🔥','💯','⭐','🌟','💫','⚡','🎉','🎁','🏆','🎯','🔔','💡','✅','❗','📌','📍','💬','👀','📣','🆕','🔒','📅','📊','📈','💼','🛒','🚀','👑','💎','💪','👍','🙌','👏','🙏','❤️','🧡','💛','💙','💜','😊','😎','🤩','🥳','🤔','🤝','💻','📱','🎧','🎮','🖥️','🍀','🌈','☀️','🧊','🍂','🎄','🧧'];
+
+/* ===================== 狀態 ===================== */
+const S = { platform:'IG', calendar:[], post:null, media:[], links:[], copyOut:'', utm:[], comment:'' };
+const LS = { get(k,d){ try{ const v=localStorage.getItem(k); return v===null?d:v; }catch(e){ return d; } }, set(k,v){ try{ localStorage.setItem(k,v); }catch(e){} } };
+
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),1600); }
+function copyText(text){ return navigator.clipboard.writeText(text).then(()=>toast('已複製')).catch(()=>{ const ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); toast('已複製'); }); }
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function escRe(s){ return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }
+function pad(n){ return String(n).padStart(2,'0'); }
+function ymd(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+function mdSlash(iso){ const [y,m,d]=iso.split('-'); return parseInt(m,10)+'/'+parseInt(d,10); }
+function compact(iso){ return iso.replace(/-/g,''); }
+function periodFromDate(iso){ const [y,m]=iso.split('-'); return String(y).slice(2)+'yq'+(Math.floor((parseInt(m,10)-1)/3)+1); }
+
+/* ===================== 導覽 ===================== */
+function go(n){
+  document.querySelectorAll('.step').forEach(s=>s.classList.toggle('active', s.dataset.step==String(n)));
+  document.querySelectorAll('section.panel').forEach(p=>p.classList.toggle('active', p.dataset.panel==String(n)));
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+document.querySelectorAll('.step').forEach(s=>s.addEventListener('click',()=>go(s.dataset.step)));
+document.querySelectorAll('.tabs .tab').forEach(t=>t.addEventListener('click',()=>{
+  const box=t.parentElement.parentElement;
+  box.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===t));
+  box.querySelectorAll('.tabpane').forEach(p=>p.classList.toggle('active',p.dataset.tab===t.dataset.tab));
+}));
+document.querySelectorAll('[data-copy]').forEach(b=>b.addEventListener('click',()=>{ const el=$(b.dataset.copy); copyText(el.value!==undefined?el.value:el.textContent); }));
+
+function updateCur(){
+  const p=S.post;
+  $('curPlatform').textContent=S.platform; $('curPlatform').className='pill '+S.platform.toLowerCase();
+  $('curName').textContent=p?p.name:'尚未選擇貼文';
+  $('curMeta').textContent=p?[p.date?mdSlash(p.date):'', p.mkt?('MKT：'+p.mkt):'', p.time?('發布 '+p.time):''].filter(Boolean).join(' ・ '):'';
+}
+
+/* ===================== 1. 行事曆 ===================== */
+function parseEntry(cell){
+  // "華碩服務PLUS(Jennie,2130)" / "ProArt P14/P16 開放預購*(Ashley,0200預購)" / 多篇以「、」分隔
+  const out=[];
+  const parts=cell.split(/、(?=[^()（）]*[（(])/); // 以頓號分段，但頓號後要有括號才算新篇
+  parts.forEach(seg=>{
+    seg=seg.trim(); if(!seg) return;
+    const m=seg.match(/^(.*?)[（(]\s*([A-Za-z一-鿿]+)\s*[,，]\s*(\d{3,4})([^)）]*)[)）]\s*$/);
+    if(m){ out.push({name:m[1].replace(/\*+$/,'').trim(), mkt:m[2].trim(), time:m[3].length===3?'0'+m[3]:m[3], note:m[4].trim()}); }
+    else out.push({name:seg.replace(/\*+$/,'').trim(), mkt:'', time:'', note:''});
+  });
+  return out;
+}
+function parseCalendarGrid(text, year){
+  const rows=text.replace(/\r/g,'').split('\n').map(r=>r.split('\t'));
+  const dateRe=/^(\d{1,2})月(\d{1,2})日$/;
+  const posts=[]; let headers=null;
+  rows.forEach(cells=>{
+    const isHeader=cells.some(c=>dateRe.test(c.trim())) && cells.filter(c=>c.trim()).every(c=>dateRe.test(c.trim()));
+    if(isHeader){ headers=cells.map(c=>{ const m=c.trim().match(dateRe); return m?year+'-'+pad(m[1])+'-'+pad(m[2]):null; }); return; }
+    if(!headers) return;
+    cells.forEach((c,i)=>{ c=c.trim(); if(!c||!headers[i]) return; parseEntry(c).forEach(e=>posts.push(Object.assign({date:headers[i]},e))); });
+  });
+  return posts;
+}
+function parseCsvCalendar(csv, year){
+  // 簡易 CSV → TSV
+  const rows=[]; let row=[],cell='',q=false;
+  for(let i=0;i<csv.length;i++){ const ch=csv[i];
+    if(q){ if(ch==='"'){ if(csv[i+1]==='"'){cell+='"';i++;} else q=false; } else cell+=ch; }
+    else if(ch==='"') q=true; else if(ch===','){row.push(cell);cell='';} else if(ch==='\n'){row.push(cell);rows.push(row);row=[];cell='';} else if(ch!=='\r') cell+=ch; }
+  if(cell||row.length){row.push(cell);rows.push(row);}
+  return parseCalendarGrid(rows.map(r=>r.join('\t')).join('\n'), year);
+}
+function renderCalendar(){
+  const tb=$('calTable').querySelector('tbody'); tb.innerHTML='';
+  const f=$('calDate').value;
+  const list=S.calendar.filter(p=>!f||p.date===f).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+  if(!list.length){ tb.innerHTML='<tr><td colspan="5" class="status">沒有符合的貼文</td></tr>'; return; }
+  list.forEach(p=>{
+    const tr=document.createElement('tr'); tr.className='pick'+(S.post&&S.post.id===p.id?' sel':'');
+    tr.innerHTML='<td>'+esc(mdSlash(p.date))+'</td><td>'+(p.status?'<span class="pill '+(p.status==='pending'?'red':'ok')+'">'+(p.status==='pending'?'未入稿':'已入稿')+'</span>':'')+esc(p.name)+(p.note?' <span class="pill">'+esc(p.note)+'</span>':'')+'</td><td>'+esc(p.mkt)+'</td><td>'+esc(p.time)+'</td><td><button class="btn sm">選這篇</button></td>';
+    tr.addEventListener('click',()=>selectPost(p));
+    tb.appendChild(tr);
+  });
+}
+function selectPost(p){
+  S.post=p; S.platform=$('calPlatform').value; updateCur(); renderCalendar();
+  $('utmDate').value=p.date; $('pubDate').value=p.date;
+  if(p.time) $('pubTime').value=p.time.slice(0,2)+':'+p.time.slice(2);
+  $('utmPeriod').value=$('utmPeriod').value||periodFromDate(p.date);
+  $('utmSource').value=S.platform==='IG'?'instagram':'facebook';
+  $('fbTag').disabled=S.platform==='IG'; if(S.platform==='IG') $('fbTag').value='';
+  guessProductLine(p.name);
+  updateMediaName(); fillMailMkt();
+  toast('已選擇：'+p.name); go(2);
+}
+function guessProductLine(name){
+  const n=name.toLowerCase(); const sel=$('productLine');
+  const map=[['vivobook','Vivobook'],['zenbook','Zenbook'],['proart station','ProArt Station (桌機)'],['proart','ProArt NB (Studiobook/P16)'],['tuf','TUF Gaming'],['ally','ROG Ally'],['rog','ROG NB'],['expertbook','ExpertBook'],['expertcenter','ExpertCenter'],['expert','ExpertBook'],['chromebook','Chromebook'],['zenfone','Zenfone'],['aio','家用 AiO'],['桌機','家用 DT'],['store','Store / EC 活動'],['服務','ASUS 全產品線'],['會員','ASUS VIP 活動'],['vip','ASUS VIP 活動'],['螢幕','Monitor'],['monitor','Monitor']];
+  for(const [k,v] of map){ if(n.includes(k)){ sel.value=v; syncUtmProduct(); return; } }
+}
+$('calParseBtn').addEventListener('click',()=>{
+  const y=new Date().getFullYear();
+  S.calendar=parseCalendarGrid($('calPaste').value,y).map((p,i)=>Object.assign({id:'c'+Date.now()+i},p));
+  $('calStatus').textContent='解析到 '+S.calendar.length+' 篇'; S.platform=$('calPlatform').value; updateCur(); renderCalendar();
+});
+$('calFetchBtn').addEventListener('click',async()=>{
+  const u=$('calCsvUrl').value.trim(); if(!u) return;
+  $('calStatus').textContent='抓取中…';
+  try{ const r=await fetch(u); const t=await r.text(); S.calendar=parseCsvCalendar(t,new Date().getFullYear()).map((p,i)=>Object.assign({id:'c'+Date.now()+i},p)); LS.set('console.csvUrl',u); $('calStatus').textContent='抓到 '+S.calendar.length+' 篇'; renderCalendar(); }
+  catch(e){ $('calStatus').textContent='抓取失敗：請確認已「發布到網路」且為 CSV 連結'; }
+});
+// Apps Script 橋接
+function gasUrl(){ return $('gasUrl').value.trim().replace(/\/$/,''); }
+function loadGasUrl(){ $('gasUrl').value=LS.get('console.gasUrl.'+$('calPlatform').value, LS.get('console.gasUrl','')); }
+loadGasUrl(); $('gasUrl').addEventListener('change',()=>LS.set('console.gasUrl.'+$('calPlatform').value,gasUrl()));
+$('calPlatform').addEventListener('change',loadGasUrl);
+async function gasGet(params){ const u=gasUrl(); if(!u) throw new Error('請先填 Apps Script 連結'); const r=await fetch(u+'?'+new URLSearchParams(params).toString()); const j=await r.json(); if(!j.ok) throw new Error(j.error||'失敗'); return j; }
+async function gasPost(body){ const u=gasUrl(); if(!u) throw new Error('請先填 Apps Script 連結'); const r=await fetch(u,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)}); const j=await r.json(); if(!j.ok) throw new Error(j.error||'失敗'); return j; }
+$('gasSheetsBtn').addEventListener('click',async()=>{ try{ const j=await gasGet({action:'sheets'}); $('gasSheet').innerHTML='<option value="">（本月分頁）</option>'+j.sheets.map(s=>'<option>'+esc(s)+'</option>').join(''); $('calStatus').textContent='分頁：'+j.sheets.join('、'); }catch(e){ $('calStatus').textContent=e.message; } });
+$('gasFetchBtn').addEventListener('click',async()=>{ $('calStatus').textContent='讀取中…'; try{ const j=await gasGet({action:'list',sheet:$('gasSheet').value}); S.calendar=j.posts.map((p,i)=>Object.assign({id:'g'+i,sheet:$('gasSheet').value},p)); S.platform=$('calPlatform').value; updateCur(); renderCalendar(); $('calStatus').textContent='讀到 '+S.calendar.length+' 篇，其中未入稿 '+S.calendar.filter(p=>p.status==='pending').length+' 篇'; }catch(e){ $('calStatus').textContent='讀取失敗：'+e.message; } });
+$('calDate').addEventListener('change',renderCalendar);
+$('calToday').addEventListener('click',()=>{ $('calDate').value=ymd(new Date()); renderCalendar(); });
+$('calClear').addEventListener('click',()=>{ $('calDate').value=''; renderCalendar(); });
+$('calManualBtn').addEventListener('click',()=>{
+  const name=prompt('貼文名稱'); if(!name) return;
+  const date=prompt('日期 (YYYY-MM-DD)', $('calDate').value||ymd(new Date()))||ymd(new Date());
+  const mkt=prompt('MKT 名字','')||''; const time=(prompt('發布時間 (HHMM)','2130')||'').replace(':','');
+  const p={id:'m'+Date.now(),date,name,mkt,time,note:''}; S.calendar.push(p); renderCalendar(); selectPost(p);
+});
+$('resetBtn').addEventListener('click',()=>{ if(!confirm('清除目前這篇的所有內容？')) return; S.post=null; S.media=[]; S.links=[]; ['srcPaste','srcCopy','srcLinks','copyIn','utmLinks','utmRows','mailSubject','mailBody','altText','utmModel','utmNote'].forEach(id=>$(id).value=''); ['copyOut','commentOut','finalCopy','finalComment'].forEach(id=>$(id).innerHTML=''); $('mediaList').innerHTML='<div class="card status">尚未解析</div>'; $('utmTable').querySelector('tbody').innerHTML=''; $('copyIssues').innerHTML=''; updateCur(); renderCalendar(); go(1); });
+
+// 入稿提醒信
+$('remGen').addEventListener('click',()=>{
+  const a=$('remFrom').value,b=$('remTo').value; if(!a||!b){ toast('請選日期區間'); return; }
+  const inRange=S.calendar.filter(p=>p.date>=a&&p.date<=b&&p.mkt);
+  const names=[...new Set(inRange.map(p=>p.mkt))];
+  const mk=getMktMap(); const emails=names.map(n=>mk[n]?mk[n].email:'').filter(Boolean);
+  const cc=[...new Set(names.map(n=>mk[n]&&mk[n].cc).filter(Boolean).concat(getCfgCc()))];
+  const hi=names.length===0?'Hi All,':names.length===1?('Hi '+names[0]+',' ):names.length===2?('Hi '+names.join(' & ')+','):'Hi All,';
+  const you=names.length===1?'您':'您們';
+  const rng=mdSlash(a)+'-'+mdSlash(b);
+  $('remSubject').value=rng+' ASUS '+S.platform+' 入稿提醒';
+  $('remTo2').value='To: '+emails.join('; ')+(cc.length?'   CC: '+cc.join('; '):'');
+  $('remBody').value=hi+'\n\n提醒'+you+'有於'+rng+'預約社群版位（'+S.platform+'），再請提早一個工作天入稿，謝謝！\n\n'+inRange.map(p=>'・'+mdSlash(p.date)+' '+p.name+'（'+p.mkt+'，'+p.time+'）').join('\n')+'\n\n'+getMe();
+  $('remMailto').href='mailto:'+encodeURIComponent(emails.join(';'))+'?cc='+encodeURIComponent(cc.join(';'))+'&subject='+encodeURIComponent($('remSubject').value)+'&body='+encodeURIComponent($('remBody').value);
+});
+
+/* ===================== 2. 圖文素材 ===================== */
+const URL_RE=/https?:\/\/[^\s<>"'）)】\]]+/g;
+function isMediaUrl(u){ return /sharepoint\.com|onedrive|1drv\.ms|drive\.google|\.(png|jpe?g|gif|mp4|mov)(\?|$)/i.test(u); }
+function parseSource(text){
+  const lines=text.replace(/\r/g,'').split('\n');
+  const media=[], links=[], copy=[];
+  let inLinks=false;
+  lines.forEach(raw=>{
+    const line=raw.trim();
+    const urls=line.match(URL_RE)||[];
+    if(urls.length && urls.every(isMediaUrl) && line.replace(URL_RE,'').trim().length<12){ urls.forEach(u=>media.push(u)); return; }
+    const lm=line.match(/^([^：:]{1,30})[：:]\s*(https?:\/\/\S+)\s*$/);
+    if(lm){ links.push({label:lm[1].trim(),url:lm[2].trim()}); inLinks=true; return; }
+    if(/^(溜溜樂入手|立即入手|購買連結|導購連結|留言連結|哪裡買)/.test(line)){ inLinks=true; return; }
+    if(urls.length===1 && line===urls[0]){ links.push({label:'連結'+(links.length+1),url:urls[0]}); return; }
+    if(line==='' && inLinks) return;
+    copy.push(raw.replace(/\s+$/,''));
+  });
+  // 去掉文案頭尾空行；末行若是「日期 貼文名稱」註記也拿掉
+  while(copy.length&&!copy[0].trim()) copy.shift();
+  while(copy.length&&!copy[copy.length-1].trim()) copy.pop();
+  if(copy.length&&/^\d{1,2}\/\d{1,2}\s/.test(copy[copy.length-1].trim())) copy.pop();
+  return {media,links,copy:copy.join('\n')};
+}
+function renderMedia(){
+  const box=$('mediaList'); box.innerHTML='';
+  if(!S.media.length){ box.innerHTML='<div class="card status">沒有找到素材連結，請手動到進稿表下載</div>'; return; }
+  S.media.forEach((u,i)=>{ const d=document.createElement('div'); d.className='card';
+    d.innerHTML='<div class="pill">素材 '+(i+1)+'</div><div class="mono" style="margin:6px 0">'+esc(u)+'</div><div class="row" style="margin:4px 0 0"><a class="btn sm" href="'+esc(u)+'" target="_blank">開啟／下載 ↗</a><button class="btn ghost sm" data-u="'+esc(u)+'">複製連結</button></div>';
+    d.querySelector('button').addEventListener('click',e=>copyText(e.target.dataset.u)); box.appendChild(d); });
+}
+function updateMediaName(){ const p=S.post; if(!p) return; $('mediaName').textContent=compact(p.date).slice(4)+'-'+(p.time||'')+'_'+p.name.replace(/[\\/:*?"<>|]/g,'_'); }
+function applySource(parsed){
+  S.media=parsed.media; renderMedia();
+  $('srcCopy').value=parsed.copy; $('srcLinks').value=parsed.links.map(l=>l.label+'：'+l.url).join('\n');
+  $('srcStatus').textContent='素材 '+parsed.media.length+'、連結 '+parsed.links.length+'、文案 '+parsed.copy.length+' 字';
+}
+$('srcParseBtn').addEventListener('click',()=>applySource(parseSource($('srcPaste').value)));
+$('srcNextBtn').addEventListener('click',()=>{ $('copyIn').value=$('srcCopy').value; $('utmLinks').value=$('srcLinks').value; if(!S.post){ S.post={id:'x',date:ymd(new Date()),name:'未命名貼文',mkt:'',time:''}; updateCur(); } go(3); });
+
+// xlsx
+let XROWS=[];
+$('xlsxFile').addEventListener('change',e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=ev=>{ try{ const wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array'}); XROWS=[];
+    wb.SheetNames.forEach(sn=>{ const ws=wb.Sheets[sn]; const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,defval:''});
+      rows.forEach((row,ri)=>row.forEach((cell,ci)=>{ const t=String(cell||''); if(t.length>40 && /https?:\/\//.test(t)) XROWS.push({sheet:sn,r:ri+1,c:ci+1,text:t}); })); });
+    $('xlsxStatus').textContent='讀到 '+XROWS.length+' 個像貼文的格子'; renderX(); }catch(err){ $('xlsxStatus').textContent='讀取失敗：'+err.message; } };
+  r.readAsArrayBuffer(f);
+});
+function renderX(){
+  const q=$('xlsxSearch').value.trim().toLowerCase(); const tb=$('xlsxTable').querySelector('tbody'); tb.innerHTML='';
+  XROWS.filter(x=>!q||x.text.toLowerCase().includes(q)).slice(0,60).forEach(x=>{ const tr=document.createElement('tr'); tr.className='pick';
+    tr.innerHTML='<td style="width:120px"><span class="pill">'+esc(x.sheet)+'</span><br>R'+x.r+'C'+x.c+'</td><td>'+esc(x.text.slice(0,160).replace(/\n/g,' ／ '))+'…</td><td><button class="btn sm">用這格</button></td>';
+    tr.addEventListener('click',()=>{ $('srcPaste').value=x.text; applySource(parseSource(x.text)); document.querySelector('.tab[data-tab="paste"]').click(); toast('已帶入'); }); tb.appendChild(tr); });
+}
+$('xlsxSearch').addEventListener('input',renderX);
+
+/* ===================== 3. 文案校正（沿用入稿格式整理工具） ===================== */
+const CJK='一-鿿㐀-䶿豈-﫿぀-ヿ가-힣';
+const PUNCT_MAP={'!':'！','?':'？',';':'；',',':'，','(':'（',')':'）','~':'～'};
+function normalizePunctuation(text){
+  text=text.replace(/\.{3,}/g,'……');
+  text=text.replace(/(?<![A-Za-z0-9\/#@._-])\.(?![A-Za-z0-9\/])/g,'。');
+  text=text.replace(/(?<!\d):(?!\d|\/\/)/g,'：');
+  text=text.replace(/(?<!\d),(?!\d)/g,'，');
+  text=text.replace(/[!?;()~]/g,ch=>PUNCT_MAP[ch]||ch);
+  let dq=0; text=text.replace(/"/g,()=>(dq++%2===0?'「':'」'));
+  let sq=0; text=text.replace(/'/g,()=>(sq++%2===0?'『':'』'));
+  return text;
+}
+function addCjkSpacing(text){
+  const cjk='['+CJK+']', alnum='[A-Za-z0-9]';
+  text=text.replace(new RegExp('('+cjk+')('+alnum+')','g'),'$1 $2');
+  text=text.replace(new RegExp('('+alnum+')('+cjk+')','g'),'$1 $2');
+  text=text.replace(/([A-Za-z0-9]) (?=[　-〿＀-￯])/g,'$1');
+  text=text.replace(/(?<=[　-〿＀-￯]) ([A-Za-z0-9])/g,'$1');
+  text=text.replace(/#\s+(?=[A-Za-z0-9一-鿿])/g,'#');
+  return text;
+}
+const EMOJI_RE=new RegExp('(?:\\p{Regional_Indicator}{2}|\\p{Extended_Pictographic}(?:\\p{Emoji_Modifier})?(?:\\uFE0F)?(?:\\u200D\\p{Extended_Pictographic}(?:\\p{Emoji_Modifier})?(?:\\uFE0F)?)*)','gu');
+function addEmojiSpacing(text){ return text.replace(EMOJI_RE,(m,off,str)=>{ const next=str[off+m.length]; if(next===undefined||/\s/.test(next)) return m; return m+' '; }); }
+function protectSocialSpacing(text){ text=text.trim().replace(/\n{3,}/g,'\n\n'); text=text.replace(/[ \t]{2,}/g,run=>run.split('').join(ZWSP)); return text.split('\n').map(l=>l===''?ZWSP:l).join('\n'); }
+function getBrandMap(){ return $('cfgBrand').value.split('\n').map(s=>s.trim()).filter(s=>s&&!s.startsWith('#')).map(l=>{ const [w,c]=l.split('=>').map(x=>x&&x.trim()); return {wrong:w,correct:c}; }).filter(p=>p.wrong&&p.correct); }
+function getSensitive(){ return $('cfgSensitive').value.split('\n').map(s=>s.trim()).filter(Boolean); }
+function resolveOverlaps(ms){ ms.sort((a,b)=>a.start-b.start||(b.end-b.start)-(a.end-a.start)); const r=[]; let last=-1; ms.forEach(m=>{ if(m.start<last) return; r.push(m); last=m.end; }); return r; }
+function correctBrandCasing(text){
+  const ms=[]; getBrandMap().forEach(({wrong,correct})=>{ const re=new RegExp('(?<![A-Za-z])'+escRe(wrong)+'(?![A-Za-z])','gi'); let m; while((m=re.exec(text))){ if(m[0]!==correct) ms.push({start:m.index,end:m.index+m[0].length,correct}); if(re.lastIndex===m.index) re.lastIndex++; } });
+  const kept=resolveOverlaps(ms); let out='',cur=0; kept.forEach(m=>{ out+=text.slice(cur,m.start)+m.correct; cur=m.end; }); return out+text.slice(cur);
+}
+function highlight(text){
+  const ms=[];
+  getSensitive().forEach(w=>{ const re=new RegExp(escRe(w),'g'); let m; while((m=re.exec(text))){ ms.push({start:m.index,end:m.index+w.length,cls:'s',label:'敏感詞：'+w}); if(re.lastIndex===m.index) re.lastIndex++; } });
+  const corrects=[...new Set(getBrandMap().map(b=>b.correct))];
+  corrects.forEach(c=>{ const re=new RegExp('(?<![A-Za-z])'+escRe(c)+'(?![A-Za-z])','g'); let m; while((m=re.exec(text))){ ms.push({start:m.index,end:m.index+c.length,cls:'b',label:'商標：'+c}); if(re.lastIndex===m.index) re.lastIndex++; } });
+  const kept=resolveOverlaps(ms); let html='',cur=0; kept.forEach(m=>{ html+=esc(text.slice(cur,m.start))+'<mark class="'+m.cls+'" title="'+esc(m.label)+'">'+esc(text.slice(m.start,m.end))+'</mark>'; cur=m.end; }); return html+esc(text.slice(cur));
+}
+function productStyle(){ const pl=PRODUCT_LINES.find(p=>p[0]===$('productLine').value); return pl?pl[3]:'normal'; }
+function checkCopy(text){
+  const issues=[]; const plain=text.replace(new RegExp(ZWSP,'g'),'');
+  if(/抽/.test(plain)) issues.push(['bad','不可有「抽」字','改為「有機會獲得」，避免被 FB 調降觸及']);
+  if(/[，,]\s*$/.test(plain.trim())) issues.push(['warn','文末有逗號','文末不要有逗號']);
+  const urls=plain.match(URL_RE)||[]; if(urls.length) issues.push(['warn','內文含網址 '+urls.length+' 個','連結一律放留言處（有走廣告才可放內文）']);
+  const tags=(plain.match(/#[^\s#　]+/g)||[]); const seen={}, dup=[]; tags.forEach(t=>{ const k=t.toLowerCase(); if(seen[k]) dup.push(t); seen[k]=1; });
+  if(dup.length) issues.push(['bad','重複 hashtag：'+[...new Set(dup)].join(' '),'同一篇不可 tag 重複內容']);
+  tags.forEach(t=>{ if(/[^\w一-鿿_]/.test(t.slice(1))) issues.push(['warn','hashtag 可能失效：'+t,'含特殊符號會失效，可改用底線「_」']); });
+  const emo=(plain.match(EMOJI_RE)||[]); const style=productStyle();
+  if(style==='expert'&&emo.length>3) issues.push(['warn','Expert 系列 emoji '+emo.length+' 個','商務客群，盡量少用表情符號']);
+  if(style!=='expert'&&emo.length===0) issues.push(['warn','沒有 emoji','其他產品線可加入 2-3 個合適的 emoji'+(style==='cute'?'（Chromebook 可用可愛一點的）':'')]);
+  if(emo.length>8) issues.push(['warn','emoji 偏多（'+emo.length+'）','避免太多符號及重複的 emoji']);
+  const ex=(plain.match(/！/g)||[]).length; if(ex>4) issues.push(['warn','驚嘆號 '+ex+' 個','避免太多，可用波浪號或 icon 代替']);
+  const dupEmo=Object.entries(emo.reduce((a,e)=>{a[e]=(a[e]||0)+1;return a;},{})).filter(([k,v])=>v>=3); if(dupEmo.length) issues.push(['warn','重複 emoji：'+dupEmo.map(d=>d[0]+'×'+d[1]).join(' '),'避免重複']);
+  plain.split('\n').forEach((l,i)=>{ if(l.length>70) issues.push(['warn','第 '+(i+1)+' 行過長（'+l.length+' 字）','避免段落冗長導致句子被切']); });
+  if(/[a-z]/.test(plain)&&/(?<![A-Za-z])(asus|rog|zenbook|vivobook|tuf|proart)(?![A-Za-z])/.test(plain)) issues.push(['warn','商標仍有小寫','請確認商標大小寫']);
+  if(S.platform==='FB'&&!$('fbTag').value) issues.push(['warn','FB 未選社群專屬 hashtag','#資訊最前線／#ASUS同樂會／#生活來點電 擇一加在最後']);
+  if(S.platform==='IG'&&/#(資訊最前線|ASUS同樂會|生活來點電)/.test(plain)) issues.push(['warn','IG 不加 FB 專屬 hashtag','請移除']);
+  if(!issues.length) issues.push(['ok','檢查通過','沒有發現 SOP 問題']);
+  return issues;
+}
+function renderIssues(list){ $('copyIssues').innerHTML=list.map(([c,t,d])=>'<li class="'+c+'"><b>'+esc(t)+'</b> — '+esc(d)+'</li>').join(''); }
+function convert(){
+  let text=$('copyIn').value.replace(/\r\n?/g,'\n');
+  if($('optBrand').checked) text=correctBrandCasing(text);
+  if($('optPunct').checked) text=normalizePunctuation(text);
+  if($('optSpacing').checked){ text=addCjkSpacing(text); text=addEmojiSpacing(text); }
+  if($('optBrand').checked) text=correctBrandCasing(text);
+  text=text.split('\n').map(l=>l.replace(/[ \t]+$/,'')).join('\n').trim();
+  const tag=$('fbTag').value; if(S.platform==='FB'&&tag&&!text.includes(tag)){ text=text.replace(/\s+$/,'')+(/#\S+\s*$/.test(text)?' ':'\n\n')+tag; }
+  if($('optZwsp').checked) text=protectSocialSpacing(text);
+  S.copyOut=text; $('copyOut').innerHTML=highlight(text); $('copyStatus').textContent='完成，共 '+text.replace(new RegExp(ZWSP,'g'),'').length+' 字'; renderIssues(checkCopy(text));
+}
+$('convertBtn').addEventListener('click',convert);
+$('copyOut').addEventListener('input',()=>{ S.copyOut=$('copyOut').textContent; renderIssues(checkCopy(S.copyOut)); });
+$('copyOutBtn').addEventListener('click',()=>copyText($('copyOut').textContent));
+$('copyNextBtn').addEventListener('click',()=>{ S.copyOut=$('copyOut').textContent||$('copyIn').value; if(!$('utmLinks').value) $('utmLinks').value=$('srcLinks').value; syncUtmProduct(); if(!$('utmDate').value) $('utmDate').value=S.post?S.post.date:ymd(new Date()); if(!$('utmPeriod').value) $('utmPeriod').value=periodFromDate($('utmDate').value); go(4); });
+$('productLine').addEventListener('change',syncUtmProduct);
+function syncUtmProduct(){ const pl=PRODUCT_LINES.find(p=>p[0]===$('productLine').value); if(pl) $('utmProduct').value=pl[1]; }
+(function initEmoji(){ const bar=$('emojiBar'); EMOJIS.forEach(e=>{ const b=document.createElement('button'); b.type='button'; b.textContent=e; b.addEventListener('click',()=>{ const ta=$('copyIn'); const s=ta.selectionStart; ta.value=ta.value.slice(0,s)+e+ta.value.slice(ta.selectionEnd); ta.focus(); ta.selectionStart=ta.selectionEnd=s+e.length; }); bar.appendChild(b); }); })();
+
+/* ===================== 4. UTM ===================== */
+const EC_KEYS=[['asus store',/shop\.asus\.com|asus\.com\/tw\/deals|store\.asus|asus\.com.*\/store/i],['momo',/momoshop/i],['pchome',/pchome/i],['yahoo',/yahoo/i],['蝦皮',/shopee/i],['燦坤',/tkec|tsann/i],['全國電子',/elifemall|全國/i],['博客來',/books\.com/i]];
+function cleanUrl(u){
+  u=u.trim();
+  try{ const x=new URL(u);
+    // 移除 utm_* 與常見追蹤參數；PChome／momo 等保留其必要參數
+    const del=[]; x.searchParams.forEach((v,k)=>{ if(/^(utm_|fbclid|gclid|mc_|_ga|ref$|refer)/i.test(k)) del.push(k); }); del.forEach(k=>x.searchParams.delete(k));
+    if(/asus\.com$/i.test(x.hostname)||/\.asus\.com$/i.test(x.hostname)){ x.search=''; x.hash=''; }
+    return x.toString().replace(/\?$/,'');
+  }catch(e){ return u; }
+}
+function landingFromUrl(u){
+  const l=u.toLowerCase();
+  if(/pchome/.test(l)) return 'pchome'; if(/momoshop/.test(l)) return 'momo'; if(/yahoo/.test(l)) return 'yahoo';
+  if(/epoints/.test(l)) return 'eventsite-epoints'; if(/account/.test(l)) return 'eventsite-vip'; if(/deals/.test(l)) return 'deals-page';
+  if(/smb/.test(l)) return 'smb'; if(/cto/.test(l)) return 'cto'; if(/filter/.test(l)) return 'filter'; if(/event/.test(l)) return 'eventsite';
+  if(/shop\.asus|store/.test(l)) return 'store'; return 'product';
+}
+function classify(u){
+  const l=u.toLowerCase();
+  if(/shopee/.test(l)) return 'shopee';
+  if(/pchome/.test(l)) return 'pchome'; if(/momoshop/.test(l)) return 'momo'; if(/tw\.buy\.yahoo|yahoo\.com/.test(l)) return 'yahoo';
+  if(/^https?:\/\/([a-z0-9-]+\.)*asus\.com/.test(l)||/^https?:\/\/(shop|rog|www)\.asus\.com/.test(l)) return 'social';
+  return 'shorten';
+}
+function buildUtm(link, idx){
+  const date=compact($('utmDate').value||ymd(new Date()));
+  const product=$('utmProduct').value||'asus'; const period=($('utmPeriod').value||periodFromDate($('utmDate').value||ymd(new Date()))).toLowerCase();
+  const type=$('utmType').value, origin=$('utmOrigin').value, model=($('utmModel').value.trim()||'na').toLowerCase().replace(/[\s_]+/g,'-'), note=($('utmNote').value.trim()||'na').toLowerCase().replace(/\s+/g,'');
+  const src=$('utmSource').value; const kind=classify(link.url); const clean=cleanUrl(link.url);
+  const landing=landingFromUrl(clean); const no=pad(idx);
+  const optional=[type,origin,product,no,landing,note].join('_').replace(/\s+/g,'');
+  const campaign=[date,product,'asustw',period,'na','opt',optional].join('_');
+  const content=[date,product,'asustw',period,'na',model,'na','na','brand','opt',optional].join('_');
+  let tagged='', how='';
+  if(kind==='shorten'){ how='僅縮網址（非 ASUS／PChome／momo／Yahoo）'; tagged=clean; }
+  else if(kind==='shopee'){ how='蝦皮：填 UTM 後交 Mentor 帶 code'; tagged=clean; }
+  else { how=(kind==='social'?'Social sheet':kind+' sheet')+' 帶 code'; const sep=clean.includes('?')?'&':'?'; tagged=clean+sep+'utm_campaign='+campaign+'&utm_source='+src+'&utm_medium=social&utm_content='+content; }
+  return {label:link.label,url:link.url,clean,kind,how,campaign,content,tagged,short:link.short||'',landing};
+}
+function parseLinks(text){ return text.split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{ const m=l.match(/^([^：:]{1,40})[：:]\s*(https?:\/\/\S+)$/); if(m) return {label:m[1].trim(),url:m[2]}; const u=l.match(URL_RE); return u?{label:'連結',url:u[0]}:null; }).filter(Boolean); }
+function renderUtm(){
+  const tb=$('utmTable').querySelector('tbody'); tb.innerHTML='';
+  S.utm.forEach((r,i)=>{ const tr=document.createElement('tr');
+    tr.innerHTML='<td>'+(i+1)+'</td><td><b>'+esc(r.label)+'</b>'+(r.kind==='shorten'||r.kind==='shopee'?'':'<br><span class="pill">'+esc(r.landing)+'</span>')+'</td><td>'+esc(r.how)+'</td><td class="mono">'+(r.kind==='shorten'||r.kind==='shopee'?'—':esc(r.campaign)+'<br>'+esc(r.content))+'</td><td class="mono">'+esc(r.tagged)+'<br><button class="btn ghost sm" data-i="'+i+'">複製</button></td><td><input type="text" data-short="'+i+'" value="'+esc(r.short)+'" placeholder="https://tw.asus.click/…" style="min-width:170px"></td>';
+    tr.querySelector('button').addEventListener('click',()=>copyText(r.tagged));
+    tr.querySelector('input').addEventListener('input',e=>{ r.short=e.target.value.trim(); buildComment(); });
+    tb.appendChild(tr); });
+  buildUtmRows(); buildComment();
+}
+const DEFAULT_UTM_COLS='url,date,product,adform,period,cawm,optional,source,medium,keyword,date,product,adform,period,cawm,model,material,audience,type,optional';
+const DEFAULT_UTM_COLS2='short,posturl';
+function utmRowValues(r){
+  const d=$('utmDate').value.replace(/-/g,''); const opt=r.campaign.split('_opt_')[1]||'';
+  return {url:r.clean,date:d,product:$('utmProduct').value,adform:'asustw',period:$('utmPeriod').value,cawm:'na',optional:opt,source:$('utmSource').value,medium:'social',keyword:'',model:($('utmModel').value.trim()||'na').toLowerCase(),material:'na',audience:'na',type:'brand',tagged:r.tagged,short:r.short,posturl:$('postUrl').value.trim(),blank:''};
+}
+function buildUtmRows(){
+  const cols=($('cfgUtmCols').value||DEFAULT_UTM_COLS).split(',').map(s=>s.trim()); const cols2=($('cfgUtmCols2').value||DEFAULT_UTM_COLS2).split(',').map(s=>s.trim());
+  const rows=S.utm.filter(r=>r.kind!=='shorten'&&r.kind!=='shopee');
+  $('utmRows').value=rows.map(r=>{ const v=utmRowValues(r); return cols.map(c=>v[c]!==undefined?v[c]:'').join('\t'); }).join('\n');
+  $('utmRows2').value=rows.map(r=>{ const v=utmRowValues(r); return cols2.map(c=>v[c]!==undefined?v[c]:'').join('\t'); }).join('\n');
+}
+$('postUrl').addEventListener('input',buildUtmRows);
+function ecGroupOrder(){ const pl=PRODUCT_LINES.find(p=>p[0]===$('productLine').value); const g=pl?pl[2]:'其他'; const map={}; $('cfgEcOrder').value.split('\n').forEach(l=>{ const [k,v]=l.split('｜'); if(k&&v) map[k.trim()]=v.split(',').map(s=>s.trim().toLowerCase()); }); return map[g]||map['其他']||[]; }
+function buildComment(){
+  const order=ecGroupOrder();
+  const rank=r=>{ const l=r.label.toLowerCase(); let idx=order.findIndex(o=>l.includes(o)||o.includes(l)); if(idx<0){ const k=EC_KEYS.find(([n,re])=>re.test(r.url)); if(k) idx=order.indexOf(k[0]); } return idx<0?99:idx; };
+  const sorted=[...S.utm].sort((a,b)=>rank(a)-rank(b));
+  S.comment=sorted.map(r=>r.label+'：'+(r.short||r.tagged)).join('\n');
+  $('commentOut').textContent=S.comment;
+  const missing=sorted.filter(r=>!r.short&&r.kind!=='shorten').length;
+  $('commentStatus').textContent=(missing?('有 '+missing+' 個連結尚未縮網址（目前放帶 code 的長網址）。'):'全部已縮網址。')+' 順序依「'+(PRODUCT_LINES.find(p=>p[0]===$('productLine').value)||['','','其他'])[2]+'」電商順序。';
+}
+$('utmGenBtn').addEventListener('click',()=>{ const links=parseLinks($('utmLinks').value); if(!links.length){ $('utmStatus').textContent='沒有連結'; return; } let n=0; S.utm=links.map(l=>{ const k=classify(l.url); if(k==='social'||k==='pchome'||k==='momo'||k==='yahoo') n++; return buildUtm(l, k==='shorten'||k==='shopee'?0:n); }); $('utmStatus').textContent='產生 '+S.utm.length+' 筆'; renderUtm(); });
+$('commentCopyBtn').addEventListener('click',()=>copyText($('commentOut').textContent));
+$('commentOut').addEventListener('input',()=>{ S.comment=$('commentOut').textContent; });
+$('shortKey').value=LS.get('console.shortKey',''); $('shortKey').addEventListener('change',()=>LS.set('console.shortKey',$('shortKey').value));
+$('shortAllBtn').addEventListener('click',async()=>{
+  const key=$('shortKey').value.trim(), dom=$('shortDomain').value.trim(); if(!key){ toast('請先填 API key'); return; }
+  for(const r of S.utm){ if(r.short) continue; try{ const res=await fetch('https://api.short.io/links/public',{method:'POST',headers:{'Content-Type':'application/json',authorization:key},body:JSON.stringify({domain:dom,originalURL:r.tagged})}); const j=await res.json(); if(j.shortURL||j.secureShortURL) r.short=j.secureShortURL||j.shortURL; else toast('縮網址失敗：'+(j.message||res.status)); }catch(e){ toast('縮網址失敗（網路或 key）'); } }
+  renderUtm(); toast('完成');
+});
+$('utmNextBtn').addEventListener('click',()=>{ $('finalCopy').textContent=S.copyOut||$('copyIn').value; $('finalComment').textContent=S.comment; renderCheck(); if(!$('altText').value){ const first=(S.copyOut||'').split('\n').find(l=>l.trim().length>6&&!l.includes('#')); if(first) $('altText').value=first.replace(/[^\p{L}\p{N}\s，。！？、：]/gu,'').trim(); } go(5); });
+
+/* ===================== 5. 發布 ===================== */
+function renderCheck(){
+  const ig=S.platform==='IG';
+  const items=[
+    '素材已下載並改名：'+$('mediaName').textContent,
+    '在 Business Suite 選對平台：只勾 '+S.platform+(ig?'（預設會兩個平台都勾）':''),
+    '上傳貼文附圖／影片'+(ig?'（Reels 格式不符時改用「建立連續短片」）':''),
+    '填 ALT 文字（影片不用）、tag 商品',
+    '貼上整理後文案（已帶 hashtag'+(S.platform==='FB'?'、FB 專屬 hashtag':'')+'）',
+    ig?'IG 無法預排留言：若 MKT 要留言，先問 Mentor 能否移到內文；@ 帳號名稱不要打錯':'留言區貼上電商連結（以 ASUS 帳號留言、移除預覽；要改留言請整則刪除重發）',
+    '排定發布時間：'+($('pubDate').value?mdSlash($('pubDate').value):'')+' '+$('pubTime').value+'（右鍵時間開新分頁再確認一次）',
+    '絕對不要按「立即發布」',
+    '留言電商順序依產品線確認；家用 NB／DT／配件每天 15:00 檢查七個電商有無貨'
+  ];
+  $('pubCheck').innerHTML=items.map((t,i)=>'<li><input type="checkbox" id="ck'+i+'"><label for="ck'+i+'">'+esc(t)+'</label></li>').join('');
+}
+$('finalCopyBtn').addEventListener('click',()=>copyText($('finalCopy').textContent));
+$('finalCommentBtn').addEventListener('click',()=>copyText($('finalComment').textContent));
+$('openMediaBtn').addEventListener('click',()=>{ if(!S.media.length){ toast('沒有素材連結'); return; } S.media.forEach(u=>window.open(u,'_blank')); });
+$('pubNextBtn').addEventListener('click',()=>{ fillMailMkt(); genMail(); go(6); });
+
+/* ===================== 6. 通知信 ===================== */
+function getMktMap(){ const m={}; $('cfgMkt').value.split('\n').forEach(l=>{ const [n,p,e,c]=l.split('｜').map(s=>(s||'').trim()); if(n) m[n]={product:p,email:e,cc:c}; }); return m; }
+function getCfgCc(){ return $('cfgCc').value.split(/[,;，；]/).map(s=>s.trim()).filter(Boolean); }
+function getMe(){ return $('cfgMe').value.trim(); }
+function getMentor(){ const [n,e]=($('cfgMentor').value||'').split('｜').map(s=>(s||'').trim()); return {name:n,email:e}; }
+function fillMailMkt(){ const sel=$('mailMkt'); const map=getMktMap(); sel.innerHTML=Object.keys(map).map(n=>'<option>'+esc(n)+'</option>').join(''); if(S.post&&map[S.post.mkt]) sel.value=S.post.mkt; syncCc(); }
+function syncCc(){
+  const map=getMktMap(); const m=map[$('mailMkt').value]||{}; const mentor=getMentor(); const mode=$('mailMode').value;
+  if(mode==='mentor'){ $('mailTo').value=mentor.email||''; $('mailCc').value=getCfgCc().join('; '); }
+  else { $('mailTo').value=m.email||''; $('mailCc').value=[...new Set([m.cc,mentor.email].concat(getCfgCc()).filter(Boolean))].join('; '); }
+}
+$('mailMkt').addEventListener('change',syncCc); $('mailMode').addEventListener('change',()=>{ syncCc(); genMail(); });
+let SHOT=null; // {dataUrl, mime, b64}
+$('mailShot').addEventListener('change',e=>{ const f=e.target.files[0]; if(!f){ SHOT=null; return; } const r=new FileReader(); r.onload=ev=>{ SHOT={dataUrl:ev.target.result,mime:f.type||'image/png',b64:ev.target.result.split(',')[1],name:f.name}; genMail(); }; r.readAsDataURL(f); });
+function commentLinesHtml(){
+  // 留言文字 → 📍通路：<br>短網址；沒有網址的行視為小標（例：立即購買）
+  const lines=(S.comment||'').split('\n').map(l=>l.trim()).filter(Boolean); let n=0;
+  const html=lines.map(l=>{ const m=l.match(/^(.*?)[：:]\s*(https?:\/\/\S+)$/); if(m){ n++; return '<div>📍'+esc(m[1])+'：</div><div><a href="'+esc(m[2])+'">'+esc(m[2])+'</a></div>'; } const u=l.match(URL_RE); if(u){ n++; return '<div><a href="'+esc(u[0])+'">'+esc(u[0])+'</a></div>'; } return '<div style="margin-top:6px">'+esc(l)+'</div>'; }).join('');
+  return {html,n};
+}
+function genMail(){
+  const p=S.post||{name:'',date:ymd(new Date()),time:''}; const mkt=$('mailMkt').value; const mentor=getMentor(); const mode=$('mailMode').value;
+  const [y,m,d]=p.date.split('-'); const dateSlash=y+'/'+parseInt(m,10)+'/'+parseInt(d,10); const timeStr=$('pubTime').value||(p.time?p.time.slice(0,2)+':'+p.time.slice(2):'');
+  const edited=$('mailEdited').value==='yes'; const note=$('mailEditNote').value.trim();
+  $('mailSubject').value='入稿通知_'+compact(p.date).slice(4)+'_'+S.platform+(p.name?'_【'+p.name+'】':'');
+  const F='font-family:\'Microsoft JhengHei\',\'微軟正黑體\',sans-serif;font-size:14px;line-height:1.7;color:#222';
+  let h='';
+  if(mode==='mentor'){ h+='<p style="'+F+'">Hi '+esc(mentor.name||'Mentor')+',</p><p style="'+F+'">以下是我要寄給 '+esc(mkt)+' '+esc(mdSlash(p.date))+' 的入稿通知<br>再麻煩您幫我過目了 謝謝！</p><br>'; }
+  h+='<p style="'+F+'">Hi '+esc(mkt)+',</p>';
+  h+='<p style="'+F+'">'+esc(S.platform)+' 貼文已排定於 <u>'+esc(dateSlash)+(timeStr?' '+esc(timeStr):'')+'</u>，請再過目'+(edited?'<br>貼文文案有微調'+(note?'：'+esc(note):'（如下方螢光底）')+'，再麻煩確認':'')+'<br>若有任何需要調整的地方請再和我說，謝謝～～</p>';
+  const c=commentLinesHtml();
+  const copyHtml=esc(S.copyOut||'').replace(/\n/g,'<br>');
+  const shotHtml=SHOT?'<img src="'+(SHOT.cid?'cid:'+SHOT.cid:SHOT.dataUrl)+'" style="max-width:420px;display:block">':'<div style="color:#999">（貼上 Business Suite 排程畫面截圖）</div>';
+  h+='<table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;'+F+';vertical-align:top"><tr style="background:#f3f3f3"><td style="width:260px"><b>留言網址 '+c.n+' 個</b></td><td><b>'+esc(S.platform)+'</b></td></tr>'+
+     '<tr><td style="vertical-align:top;word-break:break-all">'+(c.n?c.html:'（本篇無留言連結）')+'</td><td style="vertical-align:top">'+shotHtml+'<div style="margin-top:10px;white-space:pre-wrap">'+copyHtml+'</div></td></tr></table>';
+  if(getMe()) h+='<p style="'+F+'">'+esc(getMe())+'</p>';
+  $('mailHtml').innerHTML=h;
+  // 純文字版（mailto 用）
+  let body=(mode==='mentor'?'Hi '+(mentor.name||'Mentor')+',\n\n以下是我要寄給 '+mkt+' '+mdSlash(p.date)+' 的入稿通知\n再麻煩您幫我過目了 謝謝！\n\n':'')+'Hi '+mkt+',\n\n'+S.platform+' 貼文已排定於 '+dateSlash+' '+timeStr+'，請再過目\n'+(edited?'貼文文案有微調'+(note?'：'+note:'')+'，再麻煩確認\n':'')+'若有任何需要調整的地方請再和我說，謝謝～～\n\n【留言網址 '+c.n+' 個】\n'+(S.comment||'')+'\n\n【'+S.platform+' 貼文內容】\n'+(S.copyOut||'')+'\n\n'+getMe();
+  $('mailBody').value=body;
+  $('mailMailto').href='mailto:'+encodeURIComponent($('mailTo').value)+'?cc='+encodeURIComponent($('mailCc').value.replace(/;\s*/g,';'))+'&subject='+encodeURIComponent($('mailSubject').value)+'&body='+encodeURIComponent(body);
+  const tags=((S.copyOut||'').match(/#[^\s#　]+/g)||[]).slice(0,3).map(t=>t.slice(1)).join('、');
+  $('seoRow').value=['（項目）','（ID）','（Owner）',compact(p.date),'ASUS',S.platform,tags,'待補',$('altText').value].join('\t');
+  $('mailStatus').textContent='已產生（'+(mode==='mentor'?'給 Mentor 過目版':'直接寄 MKT 版')+'）';
+}
+$('mailGenBtn').addEventListener('click',()=>{ syncCc(); genMail(); });
+$('markBtn').addEventListener('click',async()=>{
+  const p=S.post; if(!p||!p.raw){ $('markStatus').textContent='這篇不是從 Apps Script 讀進來的，請手動改'; return; }
+  $('markStatus').textContent='更新中…';
+  try{ const j=await gasPost({action:'mark',sheet:p.sheet||'',date:p.date,name:p.name,raw:p.raw,newName:$('markName').value.trim()}); p.status='done'; if($('markName').value.trim()) p.name=$('markName').value.trim(); p.raw=j.text; updateCur(); renderCalendar(); $('markStatus').textContent='已改為黑字：'+j.text; toast('行事曆已更新'); }
+  catch(e){ $('markStatus').textContent='失敗：'+e.message; }
+});
+$('mailRichBtn').addEventListener('click',async()=>{
+  const html=$('mailHtml').innerHTML; const text=$('mailBody').value;
+  try{ await navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([html],{type:'text/html'}),'text/plain':new Blob([text],{type:'text/plain'})})]); toast('已複製，到 Outlook 新郵件 Ctrl+V'); }
+  catch(e){ const sel=window.getSelection(); const r=document.createRange(); r.selectNodeContents($('mailHtml')); sel.removeAllRanges(); sel.addRange(r); document.execCommand('copy'); sel.removeAllRanges(); toast('已複製（選取方式）'); }
+});
+$('mailEmlBtn').addEventListener('click',()=>{
+  const subject=$('mailSubject').value, to=$('mailTo').value, cc=$('mailCc').value;
+  const b64=s=>btoa(unescape(encodeURIComponent(s)));
+  const encSubj='=?UTF-8?B?'+b64(subject)+'?=';
+  let html=$('mailHtml').innerHTML; let eml='X-Unsent: 1\r\nTo: '+to+'\r\nCc: '+cc+'\r\nSubject: '+encSubj+'\r\nMIME-Version: 1.0\r\n';
+  const htmlDoc='<html><head><meta charset="utf-8"></head><body>'+html+'</body></html>';
+  if(SHOT){ const cid='shot@console'; html=html.replace(SHOT.dataUrl,'cid:'+cid); const htmlDoc2='<html><head><meta charset="utf-8"></head><body>'+html+'</body></html>';
+    eml+='Content-Type: multipart/related; boundary="B1"\r\n\r\n--B1\r\nContent-Type: text/html; charset=utf-8\r\nContent-Transfer-Encoding: base64\r\n\r\n'+b64(htmlDoc2).replace(/(.{76})/g,'$1\r\n')+'\r\n--B1\r\nContent-Type: '+SHOT.mime+'\r\nContent-Transfer-Encoding: base64\r\nContent-ID: <'+cid+'>\r\nContent-Disposition: inline; filename="screenshot.png"\r\n\r\n'+SHOT.b64.replace(/(.{76})/g,'$1\r\n')+'\r\n--B1--\r\n'; }
+  else { eml+='Content-Type: text/html; charset=utf-8\r\nContent-Transfer-Encoding: base64\r\n\r\n'+b64(htmlDoc).replace(/(.{76})/g,'$1\r\n')+'\r\n'; }
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([eml],{type:'message/rfc822'})); a.download=subject.replace(/[\\/:*?"<>|]/g,'_')+'.eml'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); toast('已下載 .eml，用 Outlook 開啟即是草稿');
+});
+
+/* ===================== 7. 設定 ===================== */
+function loadCfg(){
+  $('cfgMkt').value=LS.get('console.mkt',DEFAULT_MKT); $('cfgCc').value=LS.get('console.cc',''); $('cfgMentor').value=LS.get('console.mentor','Leo｜'); $('cfgMe').value=LS.get('console.me','');
+  $('cfgSensitive').value=LS.get('console.sensitive',DEFAULT_SENSITIVE); $('cfgBrand').value=LS.get('console.brand',DEFAULT_BRAND); $('cfgEcOrder').value=LS.get('console.ec',DEFAULT_EC_ORDER); $('cfgUtmCols').value=LS.get('console.utmCols',DEFAULT_UTM_COLS); $('cfgUtmCols2').value=LS.get('console.utmCols2',DEFAULT_UTM_COLS2);
+  $('calCsvUrl').value=LS.get('console.csvUrl','');
+}
+$('cfgSaveBtn').addEventListener('click',()=>{ LS.set('console.mkt',$('cfgMkt').value); LS.set('console.cc',$('cfgCc').value); LS.set('console.mentor',$('cfgMentor').value); LS.set('console.me',$('cfgMe').value); LS.set('console.sensitive',$('cfgSensitive').value); LS.set('console.brand',$('cfgBrand').value); LS.set('console.ec',$('cfgEcOrder').value); LS.set('console.utmCols',$('cfgUtmCols').value); LS.set('console.utmCols2',$('cfgUtmCols2').value); $('cfgStatus').textContent='已儲存'; toast('設定已儲存'); fillMailMkt(); });
+$('cfgResetBtn').addEventListener('click',()=>{ if(!confirm('還原為預設設定？')) return; ['console.mkt','console.cc','console.mentor','console.me','console.sensitive','console.brand','console.ec','console.utmCols','console.utmCols2'].forEach(k=>{ try{localStorage.removeItem(k);}catch(e){} }); loadCfg(); toast('已還原'); });
+
+/* ===================== 主題 / 初始化 ===================== */
+function applyTheme(t){ document.documentElement.setAttribute('data-theme',t); $('themeBtn').textContent=t==='dark'?'🌙':'☀️'; LS.set('console.theme',t); }
+$('themeBtn').addEventListener('click',()=>applyTheme(document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark'));
+applyTheme(LS.get('console.theme', (window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light'));
+(function init(){
+  const sel=$('productLine'); sel.innerHTML=PRODUCT_LINES.map(p=>'<option>'+p[0]+'</option>').join('');
+  const u=[...new Set(PRODUCT_LINES.map(p=>p[1]))].sort(); $('utmProduct').innerHTML=u.map(x=>'<option>'+x+'</option>').join(''); $('utmProduct').value='asus';
+  loadCfg(); fillMailMkt(); $('calDate').value=''; $('utmDate').value=ymd(new Date()); $('utmPeriod').value=periodFromDate(ymd(new Date()));
+  $('calPlatform').addEventListener('change',()=>{ S.platform=$('calPlatform').value; updateCur(); $('utmSource').value=S.platform==='IG'?'instagram':'facebook'; $('fbTag').disabled=S.platform==='IG'; });
+  $('fbTag').disabled=true; updateCur();
+})();
+})();
+</script>
+</body>
+</html>
